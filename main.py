@@ -15,13 +15,13 @@ from utils import check_distributed, model_eval, model_eval_for_val
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--train', default=False, type=bool)
+    parser.add_argument('--train', default= True, type=bool)
     parser.add_argument('--data_dir', default='./training_data_n', type=str)
     parser.add_argument('--model_save_dir', default='./checkpoints', type=str)
     parser.add_argument('--load_weight', default=False, type=bool)
     parser.add_argument('--use_mix_precision', default=False, type=bool)
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--accumulate_step', default=2, type=int)
     parser.add_argument('--epoch', default=700, type=int)
 
