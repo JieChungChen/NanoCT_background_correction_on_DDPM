@@ -8,7 +8,7 @@ import torch
 import time
 
 class NanoCT_Dataset(Dataset):
-    def __init__(self, data_dir, img_size, num_sample=100, seed=0):
+    def __init__(self, data_dir, img_size, num_sample=100, seed=0, transform=None):
         t_start = time.time()
         dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
         ref_files = sorted(glob.glob("%s/ref/*.tif"%data_dir))
@@ -16,18 +16,16 @@ class NanoCT_Dataset(Dataset):
         dref_imgs, ref_imgs = [], []
         np.random.seed(seed)
         dref_rnd_choose = np.random.choice(len(dref_files), num_sample, replace=False)
-        ref_rnd_choose = np.random.choice(len(ref_files), num_sample, replace=False)
+        ref_rnd_choose = np.random.choice(len(ref_files), 300, replace=False)
         for i in tqdm(dref_rnd_choose, dynamic_ncols=True, desc='load dref images'):
-            raw_dref = Image.open(dref_files[i]) # 每個pixel是光強度，遠超255
+            raw_dref = Image.open(dref_files[i]).resize((img_size, img_size)) # 每個pixel是光強度，遠超255
             dref_imgs.append(np.array(raw_dref))
         for i in tqdm(ref_rnd_choose, dynamic_ncols=True, desc='load ref images'):
-            raw_ref = Image.open(ref_files[i]) # 每個pixel是光強度，遠超255
+            raw_ref = Image.open(ref_files[i]).resize((img_size, img_size)) # 每個pixel是光強度，遠超255
             ref_imgs.append(np.array(raw_ref))
         dref_imgs = torch.Tensor(np.array(dref_imgs)).unsqueeze(1)
         ref_imgs = torch.Tensor(np.array(ref_imgs)).unsqueeze(1)
-        resize = transforms.Resize((img_size, img_size))
-        dref_imgs, ref_imgs = resize(dref_imgs), resize(ref_imgs)
-        # print(dref_imgs.shape(), ref_imgs.shape())
+        
 
         self.input_imgs = [dref*ref for dref in dref_imgs for ref in ref_imgs]
         self.input_imgs = torch.concatenate(self.input_imgs, dim=0).unsqueeze(1)
@@ -40,6 +38,7 @@ class NanoCT_Dataset(Dataset):
         print('training data preprocessing finished: %.2f sec'%(time.time()-t_start))
         self.dref_id = np.sort(dref_rnd_choose)
         self.ref_id = np.sort(ref_rnd_choose)
+        self.transform = transform
 
     def __getitem__(self, index):
         x, ref = self.input_imgs[index], self.target_imgs[index]

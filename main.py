@@ -21,15 +21,15 @@ def get_args_parser():
     parser.add_argument('--load_weight', default=False, type=bool)
     parser.add_argument('--use_mix_precision', default=False, type=bool)
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--accumulate_step', default=2, type=int)
-    parser.add_argument('--epoch', default=500, type=int)
+    parser.add_argument('--epoch', default=700, type=int)
 
     parser.add_argument('--model_name', default='DeRef_DDPM', type=str) 
     parser.add_argument('--checkpoint', default='ckpt_500-ddpmv2.pt', type=str)                  
 
     parser.add_argument('--T', default=1000, type=float)
-    parser.add_argument('--beta_sche', default='cosine', type=str)
+    parser.add_argument('--beta_sche', default='quad', type=str)
     parser.add_argument('--beta_1', default=1e-4, type=float)
     parser.add_argument('--beta_T', default=0.02, type=float)
     parser.add_argument('--img_size', default=128, type=int)
@@ -67,12 +67,13 @@ def main(args):
 
     for e in range(args.epoch):
         dataset = NanoCT_Dataset(data_dir='./training_data_n', img_size=args.img_size)
-        if is_distributed:
-            train_sampler = DistributedSampler(dataset, shuffle=True)
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True, sampler=train_sampler)
-            dataloader.sampler.set_epoch(e)
-        else:
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True)
+        if e % 5 == 0:
+            if is_distributed:
+                train_sampler = DistributedSampler(dataset, shuffle=True)
+                dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True, sampler=train_sampler)
+                dataloader.sampler.set_epoch(e)
+            else:
+                dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True)
 
         model.train()
         step = 0
