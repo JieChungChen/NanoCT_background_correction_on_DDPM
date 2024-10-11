@@ -22,14 +22,14 @@ def get_args_parser():
     parser.add_argument('--use_mix_precision', default=False, type=bool)
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--batch_size', default=2, type=int)
-    parser.add_argument('--accumulate_step', default=1, type=int)
+    parser.add_argument('--accumulate_step', default=2, type=int)
     parser.add_argument('--epoch', default=500, type=int)
 
     parser.add_argument('--model_name', default='DeRef_DDPM', type=str) 
-    parser.add_argument('--checkpoint', default='ckpt_340.pt', type=str)                  
+    parser.add_argument('--checkpoint', default='ckpt_500-ddpmv2.pt', type=str)                  
 
-    parser.add_argument('--T', default=2000, type=float)
-    parser.add_argument('--beta_sche', default='linear', type=str)
+    parser.add_argument('--T', default=1000, type=float)
+    parser.add_argument('--beta_sche', default='cosine', type=str)
     parser.add_argument('--beta_1', default=1e-4, type=float)
     parser.add_argument('--beta_T', default=0.02, type=float)
     parser.add_argument('--img_size', default=128, type=int)
@@ -51,15 +51,11 @@ def main(args):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # data settings
+    torch.backends.cudnn.benchmark = True
     os.makedirs(args.model_save_dir, exist_ok=True)
     model = Diffusion_UNet().to(device)
-    dataset = NanoCT_Dataset(data_dir='./training_data_n', img_size=args.img_size)
     if is_distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], output_device=local_rank)
-        train_sampler = DistributedSampler(dataset, shuffle=True)
-        dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True, sampler=train_sampler)
-    else:
-        dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True)
 
     # model settings
     if args.load_weight:
@@ -70,8 +66,14 @@ def main(args):
     trainer = GaussianDiffusionTrainer(model, args.beta_1, args.beta_T, args.T).to(device)
 
     for e in range(args.epoch):
+        dataset = NanoCT_Dataset(data_dir='./training_data_n', img_size=args.img_size)
         if is_distributed:
+            train_sampler = DistributedSampler(dataset, shuffle=True)
+            dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True, sampler=train_sampler)
             dataloader.sampler.set_epoch(e)
+        else:
+            dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True)
+
         model.train()
         step = 0
         with tqdm(dataloader, dynamic_ncols=True) as tqdmDataLoader:

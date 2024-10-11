@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import glob
 from tqdm import tqdm
+from random import randint
 import matplotlib as mpl
 from PIL import Image
 mpl.use('Agg')
@@ -54,85 +55,67 @@ def model_eval(args, n_samples=8, model=None):
         model.eval()
         sampler = GaussianDiffusionSampler(model, args.beta_1, args.beta_T, args.beta_sche, args.T).to(args.device)
         for i in range(n_samples):
-            noisy_imgs = torch.randn(size=[1, 1, size, size], device=args.device)
-            pred = sampler(input_imgs[i].view(1, 1, size, size).to(args.device), noisy_imgs).squeeze().cpu().numpy()
-            fig = plt.figure()
-            plt.subplot(231)
-            plt.axis('off')
-            plt.title('input img')
-            plt.imshow(input_imgs[i, 0], cmap='gray', vmin=0, vmax=1)
-            plt.subplot(234)
-            plt.axis('off')
-            plt.title('noise')
-            plt.imshow(noisy_imgs.squeeze().cpu().numpy(), cmap='gray')
-            plt.subplot(232)
-            plt.axis('off')
-            plt.title('ref pred')
-            plt.imshow(pred, cmap='gray', vmin=0, vmax=1)
-            plt.subplot(235)
-            plt.axis('off')
-            plt.title('ref gt')
-            plt.imshow(ref_imgs[i, 0], cmap='gray', vmin=0, vmax=1)
-            plt.subplot(233)
-            plt.axis('off')
-            plt.title('input-pred')
-            plt.imshow(input_imgs[i, 0]/pred, cmap='gray')
-            plt.subplot(236)
-            plt.axis('off')
-            plt.title('dref gt')
-            plt.imshow(dref_imgs[i, 0], cmap='gray')
-            fig.tight_layout()
-            plt.savefig('figures/eval_visualize_%s.png'%str(i).zfill(3))
+            noisy_img = torch.randn(size=[1, 1, size, size], device=args.device)
+            pred = sampler(input_imgs[i].view(1, 1, size, size).to(args.device), noisy_img).squeeze().cpu().numpy()
+            obj_pred = input_imgs[i, 0]/pred
+            plot2x3(input_imgs[i, 0], noisy_img, pred, ref_imgs[i, 0], obj_pred, dref_imgs[i, 0], i)
 
 
-def model_eval_for_val(args, model=None, epoch=1):
+def model_eval_for_val(args, model=None):
+    val_path = './valid_data_n/data2/gt_dref/'
+    size = args.img_size
+    val_folders = sorted(os.listdir(val_path))
     with torch.no_grad():
-        size = args.img_size
-        val_file = '20230505_Red2-b2-60s-m1/20230505_Red2-b2-60s-m1_0003.tif'
-        raw_img = Image.open('./valid_data_n/data2/original/%s'%val_file).resize((size, size))
-        raw_img = np.array(raw_img)
-        dref_truth = Image.open('./valid_data_n/data2/gt_dref/%s'%val_file).resize((size, size))
-        ref_truth = (raw_img/dref_truth)/raw_img.max()
-        dref_truth = dref_truth/raw_img.max()
-        print(ref_truth.max(), ref_truth.min())
-        input_img = torch.Tensor(raw_img/raw_img.max())
+        for i, folder in enumerate(val_folders):
+            val_files = [_ for _ in os.listdir(val_path+folder+'/') if _.endswith('tif')]
+            rnd_id = randint(0, len(val_files)-1)
+            raw_img = Image.open('./valid_data_n/data2/original/%s/%s'%(folder, val_files[rnd_id])).resize((size, size))
+            raw_img = np.array(raw_img)
+            dref_truth = Image.open('./valid_data_n/data2/gt_dref/%s/%s'%(folder, val_files[rnd_id])).resize((size, size))
+            dref_truth = np.array(dref_truth)
+            ref_truth = (raw_img/dref_truth)/raw_img.max()
+            input_img = torch.Tensor(raw_img/raw_img.max())
         
-        if model is None:
-            model = Diffusion_UNet().to(args.device)
-            model = torch.nn.DataParallel(model)
-            model.load_state_dict(torch.load(args.model_save_dir+'/'+args.checkpoint, map_location=args.device), strict=False)
-            print("Model weight load down.")
-        model.eval()
-        sampler = GaussianDiffusionSampler(model, args.beta_1, args.beta_T, args.beta_sche, args.T).to(args.device)
-        noisyImage = torch.randn(size=[1, 1, size, size], device=args.device)
-        pred = sampler(input_img.view(1, 1, size, size).to(args.device), noisyImage).squeeze().cpu().numpy()
-        print(pred.max(), pred.min())
-        obj_pred = input_img/pred
-        fig = plt.figure()
-        plt.subplot(231)
-        plt.title('input img')
-        plt.axis('off')
-        plt.imshow(input_img, cmap='gray', vmin=0, vmax=1)
-        plt.subplot(234)
-        plt.title('noise')
-        plt.axis('off')
-        plt.imshow(noisyImage.squeeze().cpu().numpy(), cmap='gray')
-        plt.subplot(232)
-        plt.title('ref pred')
-        plt.axis('off')
-        plt.imshow(pred, cmap='gray', vmin=0, vmax=1)
-        plt.subplot(235)
-        plt.title('ref gt')
-        plt.axis('off')
-        plt.imshow(ref_truth, cmap='gray', vmin=0, vmax=1)
-        plt.subplot(233)
-        plt.title('input-pred')
-        plt.axis('off')
-        plt.imshow(obj_pred, cmap='gray')
-        plt.subplot(236)
-        plt.title('dref gt')
-        plt.imshow(dref_truth, cmap='gray')
-        plt.axis('off')
-        fig.tight_layout()
-        plt.savefig('figures/eval_visualize_ep%d.png'%(epoch))
+            if model is None:
+                model = Diffusion_UNet().to(args.device)
+                model = torch.nn.DataParallel(model)
+                model.load_state_dict(torch.load(args.model_save_dir+'/'+args.checkpoint, map_location=args.device), strict=False)
+                print("Model weight load down.")
+                
+            model.eval()
+            sampler = GaussianDiffusionSampler(model, args.beta_1, args.beta_T, args.beta_sche, args.T).to(args.device)
+            noise = torch.randn(size=[1, 1, size, size], device=args.device)
+            pred = sampler(input_img.view(1, 1, size, size).to(args.device), noise).squeeze().cpu().numpy()
+            obj_pred = input_img/pred
+            plot2x3(input_img, noise, pred, ref_truth, obj_pred, dref_truth, i)
+
+
+def plot2x3(input_img, noise, pred, ref_truth, obj_pred, dref_truth, fig_id=0):
+    fig = plt.figure()
+    plt.subplot(231)
+    plt.title('input img')
+    plt.axis('off')
+    plt.imshow(input_img, cmap='gray', vmin=0, vmax=1)
+    plt.subplot(234)
+    plt.title('noise')
+    plt.axis('off')
+    plt.imshow(noise.squeeze().cpu().numpy(), cmap='gray')
+    plt.subplot(232)
+    plt.title('ref pred')
+    plt.axis('off')
+    plt.imshow(pred, cmap='gray', vmin=0, vmax=1)
+    plt.subplot(235)
+    plt.title('ref gt')
+    plt.axis('off')
+    plt.imshow(ref_truth, cmap='gray', vmin=0, vmax=1)
+    plt.subplot(233)
+    plt.title('input-pred')
+    plt.axis('off')
+    plt.imshow(obj_pred, cmap='gray', vmin=obj_pred.min(), vmax=obj_pred.max())
+    plt.subplot(236)
+    plt.title('dref gt')
+    plt.imshow(dref_truth, cmap='gray', vmin=dref_truth.min(), vmax=dref_truth.max())
+    plt.axis('off')
+    fig.tight_layout()
+    plt.savefig('figures/trnset_'+str(fig_id).zfill(3)+'.png')
     

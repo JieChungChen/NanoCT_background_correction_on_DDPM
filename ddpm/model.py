@@ -49,7 +49,7 @@ class DownSample(nn.Module):
 
 
 class AttnBlock(nn.Module):
-    def __init__(self, in_ch, torch_mha=False):
+    def __init__(self, in_ch, torch_mha=True):
         super().__init__()
         self.torch_mha = torch_mha
         self.group_norm = nn.GroupNorm(32, in_ch)
