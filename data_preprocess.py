@@ -16,7 +16,7 @@ class NanoCT_Dataset(Dataset):
         dref_imgs, ref_imgs = [], []
         np.random.seed(seed)
         dref_rnd_choose = np.random.choice(len(dref_files), num_sample, replace=False)
-        ref_rnd_choose = np.random.choice(len(ref_files), 300, replace=False)
+        ref_rnd_choose = np.random.choice(len(ref_files), num_sample, replace=False)
         for i in tqdm(dref_rnd_choose, dynamic_ncols=True, desc='load dref images'):
             raw_dref = Image.open(dref_files[i]).resize((img_size, img_size)) # 每個pixel是光強度，遠超255
             dref_imgs.append(np.array(raw_dref))
