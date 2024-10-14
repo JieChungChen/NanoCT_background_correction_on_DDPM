@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
-import torchvision
+from random import randint
 
 
 def extract(v, t):
@@ -51,12 +51,15 @@ class GaussianDiffusionTrainer(nn.Module):
         self.register_buffer('sqrt_one_minus_alphas_bar', torch.sqrt(1. - alphas_bar).float())
 
     def forward(self, condit, x_0):
-        t = torch.randint(0, self.T, size=(x_0.shape[0], ), device=x_0.device)
+        b = x_0.shape[0]
+        t = torch.randint(0, self.T, size=(b, ), device=x_0.device)
         sqrt_alphas_bar_t = torch.gather(self.sqrt_alphas_bar, 0, t).to(x_0.device)
         sqrt_one_minus_alphas_bar_t = torch.gather(self.sqrt_one_minus_alphas_bar, 0, t).to(x_0.device)
         noise = torch.randn_like(x_0)
         x_t = (sqrt_alphas_bar_t.view(-1, 1, 1, 1) * x_0 + 
                sqrt_one_minus_alphas_bar_t.view(-1, 1, 1, 1) * noise)
+        rnd_no_cond = torch.randint(0, b, (b//2, ))
+        condit[rnd_no_cond] = x_t[rnd_no_cond]
         loss = F.mse_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
         return loss
 
@@ -119,3 +122,59 @@ class GaussianDiffusionSampler(nn.Module):
             #     torchvision.utils.save_image(x_t, 'figures/%s.png'%str(time_step).zfill(4), normalize=True)
         x_0 = x_t
         return torch.clip(x_0, -1, 1) 
+    
+
+class DDIM_Sampler(nn.Module):
+    def __init__(self, model, beta_1, beta_T, beta_type, T, ddim_sampling_steps=100, eta=1):
+        """
+        Denoising Diffusion Implicit Models (DDIM), Jiaming Song et al.
+        :param eta: Hyperparameter to control the stochasticity, see (16) in DDIM paper.
+        0: deterministic(DDIM) , 1: fully stochastic(DDPM)
+        :param clip: [True, False, 'both'] 'both' will sample twice for clip==True and clip==False.
+        Details in ddim_p_sample function.
+        """
+        super().__init__()
+        self.model = model
+        self.ddim_steps = ddim_sampling_steps
+        self.eta = eta
+
+        betas = make_beta_schedule(beta_type, T, beta_1, beta_T)
+        alphas = 1. - betas
+        alphas_bar = torch.cumprod(alphas, dim=0)
+        self.register_buffer('alphas_bar', alphas_bar)
+
+        self.register_buffer('tau', torch.linspace(-1, T-1, steps=self.ddim_steps+1, dtype=torch.long)[1:])
+        alpha_tau_i = alphas_bar[self.tau]
+        alpha_tau_i_min_1 = F.pad(alphas_bar[self.tau[:-1]], pad=(1, 0), value=1.)  # alpha_0 = 1
+
+        self.register_buffer('sigma', eta * (((1 - alpha_tau_i_min_1) / (1 - alpha_tau_i) *
+                                            (1 - alpha_tau_i / alpha_tau_i_min_1)).sqrt()))
+        self.register_buffer('coeff', (1 - alpha_tau_i_min_1 - self.sigma ** 2).sqrt())
+        self.register_buffer('sqrt_alpha_i_min_1', alpha_tau_i_min_1.sqrt())
+        self.register_buffer('sqrt_recip_alphas_bar', torch.sqrt(1. / self.alphas_bar))
+        self.register_buffer('sqrt_recipm1_alphas_bar', torch.sqrt(1. / self.alphas_bar - 1))
+        assert self.coeff[0] == 0.0 and self.sqrt_alpha_i_min_1[0] == 1.0, 'DDIM parameter error'
+
+    def ddim_p_sample(self, condit, x_t, i, clip=True):
+        t = self.tau[i]
+        batched_time = torch.full((x_t.shape[0],), t, dtype=torch.long).cuda()
+        pred_noise = self.model(torch.cat([condit, x_t], dim=1), batched_time) 
+        x0 = self.sqrt_recip_alphas_bar[t] * x_t - self.sqrt_recipm1_alphas_bar[t] * pred_noise
+        if clip:
+            x0.clamp_(-1., 1.)
+            pred_noise = (self.sqrt_recip_alphas_bar[t] * x_t - x0) / self.sqrt_recipm1_alphas_bar[t]
+
+        mean = self.sqrt_alpha_i_min_1[i] * x0 + self.coeff[i] * pred_noise
+        noise = torch.randn_like(x_t) if i > 0 else 0.
+        x_t_minus_1 = mean + self.sigma[i] * noise
+        return x_t_minus_1
+
+    def forward(self, condit, x_T):
+        x_t = x_T
+        for i in tqdm(reversed(range(0, self.ddim_steps)), desc='DDIM Sampling', total=self.ddim_steps):
+            x_t_minus_1 = self.ddim_p_sample(condit, x_t, i)
+            x_t = x_t_minus_1
+        images = x_t
+        # images = (images + 1.0) * 0.5  # scale to 0~1
+        images.clamp_(min=-1.0, max=1.0)
+        return images

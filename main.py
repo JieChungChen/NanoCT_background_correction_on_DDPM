@@ -9,24 +9,24 @@ from torch.cuda.amp import autocast
 from data_preprocess import NanoCT_Dataset
 from ddpm.model import Diffusion_UNet
 from ddpm.diffusion_sr3 import GaussianDiffusionTrainer
-from utils import check_distributed, model_eval, model_eval_for_val
+from utils import check_distributed, model_eval, model_eval_for_val, contrast_test
 
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--train', default= True, type=bool)
+    parser.add_argument('--train', default=True, type=bool)
     parser.add_argument('--data_dir', default='./training_data_n', type=str)
     parser.add_argument('--model_save_dir', default='./checkpoints', type=str)
     parser.add_argument('--load_weight', default=False, type=bool)
     parser.add_argument('--use_mix_precision', default=False, type=bool)
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--batch_size', default=2, type=int)
-    parser.add_argument('--accumulate_step', default=2, type=int)
+    parser.add_argument('--accumulate_step', default=1, type=int)
     parser.add_argument('--epoch', default=700, type=int)
 
     parser.add_argument('--model_name', default='DeRef_DDPM', type=str) 
-    parser.add_argument('--checkpoint', default='ckpt_500-ddpmv2.pt', type=str)                  
+    parser.add_argument('--checkpoint', default='ckpt_70.pt', type=str)                  
 
     parser.add_argument('--T', default=1000, type=float)
     parser.add_argument('--beta_sche', default='quad', type=str)
@@ -66,8 +66,8 @@ def main(args):
     trainer = GaussianDiffusionTrainer(model, args.beta_1, args.beta_T, args.T).to(device)
 
     for e in range(args.epoch):
-        dataset = NanoCT_Dataset(data_dir='./training_data_n', img_size=args.img_size)
-        if e % 5 == 0:
+        if e % 3 == 0:
+            dataset = NanoCT_Dataset(data_dir='./training_data_n', img_size=args.img_size)
             if is_distributed:
                 train_sampler = DistributedSampler(dataset, shuffle=True)
                 dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True, sampler=train_sampler)
@@ -106,4 +106,4 @@ if __name__ == '__main__':
     if args.train:
         main(args)
     else:
-        model_eval(args)
+        model_eval_for_val(args)
