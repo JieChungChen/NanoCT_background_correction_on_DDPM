@@ -11,7 +11,7 @@ mpl.use('Agg')
 mpl.rcParams['figure.dpi'] = 200
 import matplotlib.pyplot as plt
 from ddpm.model import Diffusion_UNet
-from ddpm.diffusion_sr3 import GaussianDiffusionSampler, DDIM_Sampler
+from ddpm.diffusion import DDPMSampler, DDIM_Sampler
 
 
 def check_distributed():
@@ -54,7 +54,7 @@ def model_eval(args, n_samples=8, model=None):
             print("Model weight load down.")
 
         model.eval()
-        sampler = DDIM_Sampler(model, args.beta_1, args.beta_T, args.beta_sche, args.T).to(args.device)
+        sampler = DDPMSampler(model, args.beta_1, args.beta_T, args.beta_sche, args.T).to(args.device)
         for i in range(n_samples):
             noisy_img = torch.randn(size=[1, 1, size, size], device=args.device)
             pred = sampler(input_imgs[i].view(1, 1, size, size).to(args.device), noisy_img).squeeze().cpu().numpy()

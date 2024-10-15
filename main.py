@@ -8,14 +8,14 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.cuda.amp import autocast
 from data_preprocess import NanoCT_Dataset
 from ddpm.model import Diffusion_UNet
-from ddpm.diffusion_sr3 import GaussianDiffusionTrainer
+from ddpm.diffusion import GaussianDiffusionTrainer
 from utils import check_distributed, model_eval, model_eval_for_val, contrast_test
 
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--train', default=True, type=bool)
+    parser.add_argument('--train', default=False, type=bool)
     parser.add_argument('--data_dir', default='./training_data_n', type=str)
     parser.add_argument('--model_save_dir', default='./checkpoints', type=str)
     parser.add_argument('--load_weight', default=False, type=bool)
@@ -26,7 +26,7 @@ def get_args_parser():
     parser.add_argument('--epoch', default=700, type=int)
 
     parser.add_argument('--model_name', default='DeRef_DDPM', type=str) 
-    parser.add_argument('--checkpoint', default='ckpt_70.pt', type=str)                  
+    parser.add_argument('--checkpoint', default='ckpt_590.pt', type=str)                  
 
     parser.add_argument('--T', default=1000, type=float)
     parser.add_argument('--beta_sche', default='quad', type=str)
@@ -106,4 +106,4 @@ if __name__ == '__main__':
     if args.train:
         main(args)
     else:
-        model_eval_for_val(args)
+        model_eval(args)
