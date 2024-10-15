@@ -48,13 +48,8 @@ class GaussianDiffusionTrainer(nn.Module):
 class GaussianDiffusionSampler(nn.Module):
     def __init__(self, model, beta_1, beta_T, T):
         super().__init__()
-
         self.model = model
         self.T = T
-        ### In the classifier free guidence paper, w is the key to control the gudience.
-        ### w = 0 and with label = 0 means no guidence.
-        ### w > 0 and label > 0 means guidence. Guidence would be stronger if w is bigger.
-
         self.register_buffer('betas', torch.linspace(beta_1, beta_T, T).double())
         alphas = 1. - self.betas
         alphas_bar = torch.cumprod(alphas, dim=0)
@@ -76,9 +71,6 @@ class GaussianDiffusionSampler(nn.Module):
         return xt_prev_mean, var
 
     def forward(self, condit, x_T, infer_steps):
-        """
-        Algorithm 2.
-        """
         x_t = x_T
         step_ratio = self.T/infer_steps
         timesteps = (np.arange(0, infer_steps) * step_ratio).round()[::-1].copy().astype(np.int64)

@@ -41,24 +41,23 @@ class GaussianDiffusionTrainer(nn.Module):
         super().__init__()
         self.model = model
         self.T = T
-        # quadratic beta schedule
-        self.register_buffer('betas', make_beta_schedule('quad', T, beta_1, beta_T))
-        alphas = 1. - self.betas
+        betas =  make_beta_schedule('quad', T, beta_1, beta_T)
+        alphas = 1. - betas
         alphas_bar = torch.cumprod(alphas, dim=0)
-
-        # calculations for diffusion q(x_t | x_{t-1}) and others
+        # calculations for diffusion q(x_t | x_{t-1})
         self.register_buffer('sqrt_alphas_bar', torch.sqrt(alphas_bar).float())
         self.register_buffer('sqrt_one_minus_alphas_bar', torch.sqrt(1. - alphas_bar).float())
 
     def forward(self, condit, x_0):
-        b = x_0.shape[0]
-        t = torch.randint(0, self.T, size=(b, ), device=x_0.device)
+        B = x_0.shape[0]
+        t = torch.randint(0, self.T, size=(B,), device=x_0.device)
         sqrt_alphas_bar_t = torch.gather(self.sqrt_alphas_bar, 0, t).to(x_0.device)
         sqrt_one_minus_alphas_bar_t = torch.gather(self.sqrt_one_minus_alphas_bar, 0, t).to(x_0.device)
         noise = torch.randn_like(x_0)
-        x_t = (sqrt_alphas_bar_t.view(-1, 1, 1, 1) * x_0 + 
-               sqrt_one_minus_alphas_bar_t.view(-1, 1, 1, 1) * noise)
-        rnd_no_cond = torch.randint(0, b, (b//2, ))
+        # add noise accord to the step t
+        x_t = (sqrt_alphas_bar_t.view(-1, 1, 1, 1) * x_0 + sqrt_one_minus_alphas_bar_t.view(-1, 1, 1, 1) * noise)
+        # randomly remove the condition from half of the batch 
+        rnd_no_cond = torch.randint(0, B, (B//2,))
         condit[rnd_no_cond] = x_t[rnd_no_cond]
         loss = F.mse_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
         return loss
@@ -67,10 +66,8 @@ class GaussianDiffusionTrainer(nn.Module):
 class GaussianDiffusionSampler(nn.Module):
     def __init__(self, model, beta_1, beta_T, beta_type, T):
         super().__init__()
-
         self.model = model
         self.T = T
-        # quadratic beta schedule
         betas = make_beta_schedule(beta_type, T, beta_1, beta_T)
         alphas = 1. - betas
         alphas_bar = torch.cumprod(alphas, dim=0)
@@ -79,12 +76,11 @@ class GaussianDiffusionSampler(nn.Module):
         self.register_buffer('betas', betas)
         self.register_buffer('alphas_bar', alphas_bar)
         self.register_buffer('alphas_bar_prev', alphas_bar_prev)
-
         # for q(x_t | x_{t-1})
         self.register_buffer('sqrt_recip_alphas_cumprod', torch.sqrt(1. / self.alphas_bar))
         self.register_buffer('sqrt_recipm1_alphas_cumprod', torch.sqrt(1. / self.alphas_bar - 1))
         # for posterior q(x_{t-1} | x_t, x_0)
-        posterior_variance = betas * (1. - alphas_bar_prev) / (1. - alphas_bar)
+        posterior_variance = betas * (1. - alphas_bar_prev) / (1. - alphas_bar) # beta_wave_t
         self.register_buffer('posterior_var', posterior_variance)
         self.register_buffer('posterior_log_variance_clipped', torch.log(np.maximum(posterior_variance, 1e-20)))
         self.register_buffer('posterior_mean_coef1', betas * np.sqrt(alphas_bar_prev) / (1. - alphas_bar))
