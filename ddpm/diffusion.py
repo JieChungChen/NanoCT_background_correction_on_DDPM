@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import torchvision
 from tqdm import tqdm
 import numpy as np
-from random import randint
 
 
 def make_beta_schedule(schedule, n_timestep, beta_0=1e-4, beta_T=2e-2, cosine_s=8e-3):
@@ -32,10 +31,11 @@ def make_beta_schedule(schedule, n_timestep, beta_0=1e-4, beta_T=2e-2, cosine_s=
 
 
 class GaussianDiffusionTrainer(nn.Module):
-    def __init__(self, model, beta_1, beta_T, T):
+    def __init__(self, model, beta_1, beta_T, T, uncon_ratio):
         super().__init__()
         self.model = model
         self.T = T
+        self.ratio = uncon_ratio
         betas =  make_beta_schedule('quad', T, beta_1, beta_T)
         alphas = 1. - betas
         alphas_bar = torch.cumprod(alphas, dim=0)
@@ -51,14 +51,17 @@ class GaussianDiffusionTrainer(nn.Module):
         noise = torch.randn_like(x_0)
         # add noise accord to the step t
         x_t = (sqrt_alphas_bar_t.view(-1, 1, 1, 1) * x_0 + sqrt_one_minus_alphas_bar_t.view(-1, 1, 1, 1) * noise)
-        # randomly remove the condition from half of the batch 
-        rnd_no_cond = torch.randint(0, B, (B//2,))
-        condit[rnd_no_cond] = x_t[rnd_no_cond]
+        # randomly remove the condition from half of the batch, each sample has self.ratio chance to be unconditional
+        rnd_cond = np.random.choice([0, 1], size=B, p=[1-self.ratio, self.ratio])
+        n_sample = rnd_cond.sum()
+        if n_sample>0:
+            rnd_cond = torch.randperm(B)[:rnd_cond.sum()]
+            condit[rnd_cond] = x_t[rnd_cond]
         loss = F.mse_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
         return loss
 
 
-class DDPMSampler(nn.Module):
+class DDPM_Sampler(nn.Module):
     def __init__(self, model, beta_1, beta_T, beta_scdl, T):
         """
         Sampling process of Denoising Diffusion Probabilistic Models (DDPM)
@@ -155,4 +158,4 @@ class DDIM_Sampler(nn.Module):
                 torchvision.utils.save_image(x_t, 'figures/%s.png'%str(i).zfill(3), normalize=True)
         x_0 = x_t
         # images = (images + 1.0) * 0.5  # scale to 0~1
-        return torch.clip(x_0, -1, 1) 
+        return x_0.clamp_(-1, 1)

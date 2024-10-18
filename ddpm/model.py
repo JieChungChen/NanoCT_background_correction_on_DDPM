@@ -67,7 +67,7 @@ class AttnBlock(nn.Module):
 
         if self.torch_mha:
             h = h.view(-1, C, H * W).swapaxes(1, 2)
-            h, _ = self.mha(h, h, h)
+            h = self.mha(h, h, h)[0]
             h = h.swapaxes(2, 1).contiguous().view(-1, C, H, W)
         else:
             q = self.proj_q(h)
@@ -164,7 +164,7 @@ class Diffusion_UNet(nn.Module):
             nn.Conv2d(now_ch, 1, 3, stride=1, padding=1)
         )
  
-    def forward(self, x, t):
+    def forward(self, x, t=torch.randint(0, 1000, size=(16,)).cuda()):
         # Timestep embedding
         temb = self.time_embedding(t)
         # Downsampling
@@ -189,4 +189,4 @@ class Diffusion_UNet(nn.Module):
 
 if __name__ == '__main__':
     model = Diffusion_UNet()
-    summary(model, input_size=(1, 2, 128, 128))
+    summary(model, input_size=(16, 2, 128, 128))

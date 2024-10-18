@@ -9,7 +9,7 @@ from torch.cuda.amp import autocast
 from data_preprocess import NanoCT_Dataset
 from ddpm.model import Diffusion_UNet
 from ddpm.diffusion import GaussianDiffusionTrainer
-from utils import check_distributed, model_eval, model_eval_for_val, contrast_test
+from utils import check_distributed, model_eval, model_eval_for_val, inference
 
 
 
@@ -21,17 +21,18 @@ def get_args_parser():
     parser.add_argument('--load_weight', default=False, type=bool)
     parser.add_argument('--use_mix_precision', default=False, type=bool)
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=8, type=int)
     parser.add_argument('--accumulate_step', default=1, type=int)
-    parser.add_argument('--epoch', default=700, type=int)
+    parser.add_argument('--epoch', default=100, type=int)
 
     parser.add_argument('--model_name', default='DeRef_DDPM', type=str) 
-    parser.add_argument('--checkpoint', default='ckpt_590.pt', type=str)                  
+    parser.add_argument('--checkpoint', default='ckpt_700.pt', type=str)                  
 
     parser.add_argument('--T', default=1000, type=float)
     parser.add_argument('--beta_sche', default='quad', type=str)
     parser.add_argument('--beta_1', default=1e-4, type=float)
     parser.add_argument('--beta_T', default=0.02, type=float)
+    parser.add_argument('--uncon_ratio', default=0.25, type=float)
     parser.add_argument('--img_size', default=128, type=int)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
     parser.add_argument('--lr', default=1e-4, type=float)
@@ -63,7 +64,7 @@ def main(args):
         print("Model weight load down.")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    trainer = GaussianDiffusionTrainer(model, args.beta_1, args.beta_T, args.T).to(device)
+    trainer = GaussianDiffusionTrainer(model, args.beta_1, args.beta_T, args.T, args.uncon_ratio).to(device)
 
     for e in range(args.epoch):
         if e % 3 == 0:
@@ -106,4 +107,4 @@ if __name__ == '__main__':
     if args.train:
         main(args)
     else:
-        model_eval(args)
+        model_eval_for_val(args)

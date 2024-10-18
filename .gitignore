@@ -6,5 +6,6 @@
 __pycache__/
 valid_data_n/
 figures/
+tif-no ref/
 
 utils.py
