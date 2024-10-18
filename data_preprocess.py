@@ -1,15 +1,28 @@
 import numpy as np
 import glob
+import random
 from tqdm import tqdm
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
+import torchvision.transforms.functional as TF
 import torch
 import time
 
+
+class RndRotateTransform:
+    def __init__(self, angles=[0, 90, 180, 270]):
+        self.angles = angles
+
+    def __call__(self, x):
+        angle = random.choice(self.angles)
+        return TF.rotate(x, angle)
+    
+
 class NanoCT_Dataset(Dataset):
-    def __init__(self, data_dir, img_size, num_sample=100, transform=None):
+    def __init__(self, data_dir, img_size, num_sample=100, transform=True):
         t_start = time.time()
+        self.transform = transform
         dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
         ref_files = sorted(glob.glob("%s/ref/*.tif"%data_dir))
 
@@ -37,10 +50,17 @@ class NanoCT_Dataset(Dataset):
         print('training data preprocessing finished: %.2f sec'%(time.time()-t_start))
         self.dref_id = np.sort(dref_rnd_choose)
         self.ref_id = np.sort(ref_rnd_choose)
-        self.transform = transform
 
     def __getitem__(self, index):
         x, ref = self.input_imgs[index], self.target_imgs[index]
+        if self.transform:
+            aug = transforms.Compose([
+                RndRotateTransform(),
+                transforms.RandomVerticalFlip(p=0.5),
+                transforms.RandomHorizontalFlip(p=0.5),
+            ])
+            transformed = aug(torch.cat([x, ref], dim=0))
+            x, ref = transformed[:1], transformed[1:]
         return x, ref
 
     def get_rnd_id(self):
@@ -53,4 +73,10 @@ class NanoCT_Dataset(Dataset):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     data = NanoCT_Dataset('./training_data_n', 128)
-    print(data.get_rnd_id())
+    x, ref = data[:10]
+    plt.imshow(x[0].squeeze(), cmap='gray')
+    plt.show()
+    plt.close()
+    plt.imshow(ref[1].squeeze(), cmap='gray')
+    plt.show()
+    plt.close()

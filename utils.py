@@ -122,7 +122,7 @@ def model_eval_for_val(args, model=None):
             plot2x3(input_img, noise, pred, ref_truth, obj_pred, dref_truth, 'val', i)
 
 
-def inference(args, file_path='./tif-no ref/Fr5-b2-60s-m7/', model=None):
+def inference(args, file_path='./tif-no ref/Fr5-b2-60s-m6/', model=None):
     size = args.img_size
     infer_path = sorted(glob.glob("%s/*.tif"%file_path))
     with torch.no_grad():
@@ -141,8 +141,8 @@ def inference(args, file_path='./tif-no ref/Fr5-b2-60s-m7/', model=None):
             noise = torch.randn(size=[1, 1, size, size], device=args.device)
             pred = sampler(input_img.view(1, 1, size, size).to(args.device), noise).squeeze().cpu()
             obj_pred = input_img.squeeze()/pred
-            save_image(pred, './tif-no ref/ref/Fr5-b2-60s-m7/pred-ref-%s.tif'%str(i+1).zfill(3), normalize=True)
-            save_image(obj_pred, './tif-no ref/dref/Fr5-b2-60s-m7/pred-dref-%s.tif'%str(i+1).zfill(3), normalize=True, 
+            save_image(pred, './tif-no ref/ref/Fr5-b2-60s-m6/pred-ref-%s.tif'%str(i+1).zfill(3), normalize=True)
+            save_image(obj_pred, './tif-no ref/dref/Fr5-b2-60s-m6/pred-dref-%s.tif'%str(i+1).zfill(3), normalize=True, 
                        value_range=(obj_pred[:, :-15].min(), obj_pred[:, :-15].max()))
 
 

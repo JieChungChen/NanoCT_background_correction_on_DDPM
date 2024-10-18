@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torchinfo import summary
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 
 class Swish(nn.Module):
@@ -67,7 +68,8 @@ class AttnBlock(nn.Module):
 
         if self.torch_mha:
             h = h.view(-1, C, H * W).swapaxes(1, 2)
-            h = self.mha(h, h, h)[0]
+            with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+                h = self.mha(h, h, h)[0]
             h = h.swapaxes(2, 1).contiguous().view(-1, C, H, W)
         else:
             q = self.proj_q(h)
