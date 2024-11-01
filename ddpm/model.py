@@ -90,7 +90,7 @@ class AttnBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout, attn=False, use_torch_attn=True):
+    def __init__(self, in_ch, out_ch, tdim, dropout, attn=True, use_torch_attn=True):
         super().__init__()
         self.block1 = nn.Sequential(
             nn.GroupNorm(32, in_ch),
