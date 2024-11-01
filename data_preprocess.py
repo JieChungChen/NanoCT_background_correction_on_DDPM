@@ -20,7 +20,7 @@ class RndRotateTransform:
     
 
 class NanoCT_Dataset(Dataset):
-    def __init__(self, data_dir, img_size, num_sample=100, transform=True):
+    def __init__(self, data_dir, img_size, num_sample=50, transform=True):
         t_start = time.time()
         self.transform = transform
         dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
@@ -35,8 +35,8 @@ class NanoCT_Dataset(Dataset):
         for i in tqdm(ref_rnd_choose, dynamic_ncols=True, desc='load ref images'):
             raw_ref = Image.open(ref_files[i]).resize((img_size, img_size)) # 每個pixel是光強度，遠超255
             ref_imgs.append(np.array(raw_ref))
-        dref_imgs = torch.Tensor(np.array(dref_imgs)).unsqueeze(1)
-        ref_imgs = torch.Tensor(np.array(ref_imgs)).unsqueeze(1)
+        dref_imgs = torch.from_numpy(np.array(dref_imgs)).unsqueeze(1)
+        ref_imgs = torch.from_numpy(np.array(ref_imgs)).unsqueeze(1)
         
 
         self.input_imgs = [dref*ref for dref in dref_imgs for ref in ref_imgs]
@@ -44,7 +44,7 @@ class NanoCT_Dataset(Dataset):
         # normalize input images to [0, 1]
         pair_wise_maximum = self.input_imgs.view(num_sample**2, img_size**2).max(dim=1).values.view(-1, 1, 1, 1)
         self.input_imgs = self.input_imgs/pair_wise_maximum
-        self.target_imgs = ref_imgs.repeat(100, 1, 1, 1)
+        self.target_imgs = ref_imgs.repeat(num_sample, 1, 1, 1)
         self.target_imgs = self.target_imgs/pair_wise_maximum
         # print(self.input_imgs.shape, self.target_imgs.shape)
         print('training data preprocessing finished: %.2f sec'%(time.time()-t_start))
@@ -58,6 +58,7 @@ class NanoCT_Dataset(Dataset):
                 RndRotateTransform(),
                 transforms.RandomVerticalFlip(p=0.5),
                 transforms.RandomHorizontalFlip(p=0.5),
+                transforms.RandomCrop(64)
             ])
             transformed = aug(torch.cat([x, ref], dim=0))
             x, ref = transformed[:1], transformed[1:]
@@ -68,15 +69,15 @@ class NanoCT_Dataset(Dataset):
 
     def __len__(self):
         return len(self.input_imgs)
-
+    
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     data = NanoCT_Dataset('./training_data_n', 128)
-    x, ref = data[:10]
-    plt.imshow(x[0].squeeze(), cmap='gray')
+    x, ref = data[10]
+    plt.imshow(x.squeeze(), cmap='gray')
     plt.show()
     plt.close()
-    plt.imshow(ref[1].squeeze(), cmap='gray')
+    plt.imshow(ref.squeeze(), cmap='gray')
     plt.show()
     plt.close()

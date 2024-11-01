@@ -68,7 +68,7 @@ class AttnBlock(nn.Module):
 
         if self.torch_mha:
             h = h.view(-1, C, H * W).swapaxes(1, 2)
-            with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            with sdpa_kernel([SDPBackend.FLASH_ATTENTION]):
                 h = self.mha(h, h, h)[0]
             h = h.swapaxes(2, 1).contiguous().view(-1, C, H, W)
         else:

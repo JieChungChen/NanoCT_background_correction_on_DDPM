@@ -9,21 +9,21 @@ from torch.cuda.amp import autocast
 from data_preprocess import NanoCT_Dataset
 from ddpm.model import Diffusion_UNet
 from ddpm.diffusion import GaussianDiffusionTrainer
-from utils import check_distributed, model_eval, model_eval_for_val, inference
+from utils import check_distributed, model_eval, model_eval_for_val, model_eval_64x64patch, inference
 
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--train', default=True, type=bool)
+    parser.add_argument('--train', default=False, type=bool)
     parser.add_argument('--data_dir', default='./training_data_n', type=str)
     parser.add_argument('--model_save_dir', default='./checkpoints', type=str)
-    parser.add_argument('--load_weight', default=False, type=bool)
+    parser.add_argument('--load_weight', default=True, type=bool)
     parser.add_argument('--use_mix_precision', default=False, type=bool)
     parser.add_argument('--device', default='cuda:0', type=str)
-    parser.add_argument('--batch_size', default=2, type=int)
+    parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--accumulate_step', default=1, type=int)
-    parser.add_argument('--epoch', default=100, type=int)
+    parser.add_argument('--epoch', default=1000, type=int)
 
     parser.add_argument('--model_name', default='DeRef_DDPM', type=str) 
     parser.add_argument('--checkpoint', default='ckpt_700.pt', type=str)                  
@@ -65,23 +65,22 @@ def main(args):
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     trainer = GaussianDiffusionTrainer(model, args.beta_1, args.beta_T, args.T, args.uncon_ratio).to(device)
+    model.train()
+    optimizer.zero_grad(set_to_none=True)
 
     for e in range(args.epoch):
-        if e % 3 == 0:
+        if e % 5 == 0:
             dataset = NanoCT_Dataset(data_dir='./training_data_n', img_size=args.img_size)
             if is_distributed:
                 train_sampler = DistributedSampler(dataset, shuffle=True)
-                dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True, sampler=train_sampler)
+                dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=1, drop_last=True, pin_memory=True, sampler=train_sampler)
                 dataloader.sampler.set_epoch(e)
             else:
-                dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=4, drop_last=True, pin_memory=True)
-
-        model.train()
+                dataloader = DataLoader(dataset, batch_size=args.batch_size, num_workers=1, drop_last=True, pin_memory=True)
         step = 0
         with tqdm(dataloader, dynamic_ncols=True) as tqdmDataLoader:
             for obj_ref, ref in tqdmDataLoader:
                 b = ref.shape[0]
-                optimizer.zero_grad()
                 condit, x_0 = obj_ref.to(device), ref.to(device) 
                 loss = None   
                 loss = trainer(condit, x_0).sum() / b ** 2.
@@ -90,6 +89,7 @@ def main(args):
                 if step % args.accumulate_step == 0:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                     optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
                 torch.cuda.empty_cache()         
                 tqdmDataLoader.set_postfix(ordered_dict={
                     "epoch": e,
@@ -98,7 +98,6 @@ def main(args):
                     "LR": optimizer.state_dict()['param_groups'][0]["lr"]
                 })
         if (e+1)%10==0:
-            # model_eval(args,。 model, e+1)
             torch.save(model.state_dict(), '%s/ckpt_%d.pt'%(args.model_save_dir, e+1))
 
 
