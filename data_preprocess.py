@@ -20,7 +20,7 @@ class RndRotateTransform:
     
 
 class NanoCT_Dataset(Dataset):
-    def __init__(self, data_dir, img_size, num_sample=50, transform=True):
+    def __init__(self, data_dir, img_size, num_sample=100, transform=True):
         t_start = time.time()
         self.transform = transform
         dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
@@ -38,18 +38,16 @@ class NanoCT_Dataset(Dataset):
         dref_imgs = torch.from_numpy(np.array(dref_imgs)).unsqueeze(1)
         ref_imgs = torch.from_numpy(np.array(ref_imgs)).unsqueeze(1)
         
-
         self.input_imgs = [dref*ref for dref in dref_imgs for ref in ref_imgs]
-        self.input_imgs = torch.concatenate(self.input_imgs, dim=0).unsqueeze(1)
+        self.input_imgs = torch.cat(self.input_imgs, axis=0).unsqueeze(1)
         # normalize input images to [0, 1]
-        pair_wise_maximum = self.input_imgs.view(num_sample**2, img_size**2).max(dim=1).values.view(-1, 1, 1, 1)
-        self.input_imgs = self.input_imgs/pair_wise_maximum
-        self.target_imgs = ref_imgs.repeat(num_sample, 1, 1, 1)
-        self.target_imgs = self.target_imgs/pair_wise_maximum
-        # print(self.input_imgs.shape, self.target_imgs.shape)
+        inputs_max = self.input_imgs.amax(dim=(1, 2, 3)).view(-1, 1, 1, 1)
+        refs_max = ref_imgs.amax(dim=(1, 2, 3)).view(-1, 1, 1, 1)
+        self.input_imgs = self.input_imgs/inputs_max
+        self.target_imgs = ref_imgs/refs_max
+        self.target_imgs = self.target_imgs.repeat(num_sample, 1, 1, 1)
+        print(self.input_imgs[0].max(), self.target_imgs[2].max())
         print('training data preprocessing finished: %.2f sec'%(time.time()-t_start))
-        self.dref_id = np.sort(dref_rnd_choose)
-        self.ref_id = np.sort(ref_rnd_choose)
 
     def __getitem__(self, index):
         x, ref = self.input_imgs[index], self.target_imgs[index]
@@ -58,14 +56,11 @@ class NanoCT_Dataset(Dataset):
                 RndRotateTransform(),
                 transforms.RandomVerticalFlip(p=0.5),
                 transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomCrop(64)
+                transforms.RandomResizedCrop(128, scale=(0.9, 1), ratio=(1, 1))
             ])
             transformed = aug(torch.cat([x, ref], dim=0))
             x, ref = transformed[:1], transformed[1:]
         return x, ref
-
-    def get_rnd_id(self):
-        return self.dref_id, self.ref_id
 
     def __len__(self):
         return len(self.input_imgs)
@@ -74,10 +69,14 @@ class NanoCT_Dataset(Dataset):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     data = NanoCT_Dataset('./training_data_n', 128)
-    x, ref = data[10]
-    plt.imshow(x.squeeze(), cmap='gray')
-    plt.show()
-    plt.close()
-    plt.imshow(ref.squeeze(), cmap='gray')
-    plt.show()
-    plt.close()
+    for i in range(10):
+        x, ref = data[i]
+        print(x.max(), ref.max())
+        plt.subplot(121)
+        plt.imshow(x.squeeze(), cmap='gray')
+        plt.axis('off')
+        plt.subplot(122)
+        plt.imshow(ref.squeeze(), cmap='gray')
+        plt.axis('off')
+        plt.show()
+        plt.close()

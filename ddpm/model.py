@@ -14,7 +14,8 @@ class Swish(nn.Module):
 class TimeEmbedding(nn.Module):
     def __init__(self, n_embd):
         super().__init__()
-        freqs = torch.pow(10000, -torch.linspace(0, 1, n_embd//2))  # Shape: (1, n_embd//2)
+        base = math.log(10000) / (n_embd//2)
+        freqs = torch.exp(torch.arange(n_embd//2, dtype=torch.float32) * -base)
         self.time_mlp = nn.Sequential(
                 nn.Linear(n_embd, n_embd * 4),
                 Swish(),
@@ -23,7 +24,6 @@ class TimeEmbedding(nn.Module):
 
     def forward(self, time):  
         x = time[:, None] * self.freqs[None]
-        # x = torch.tensor([time])[:, None].cuda() * self.freqs[None] 
         x = torch.cat([torch.cos(x), torch.sin(x)], dim=-1)
         return self.time_mlp(x)
 
@@ -50,11 +50,11 @@ class DownSample(nn.Module):
 
 
 class AttnBlock(nn.Module):
-    def __init__(self, in_ch, torch_mha=True):
+    def __init__(self, in_ch, use_torch_attn=True):
         super().__init__()
-        self.torch_mha = torch_mha
+        self.use_torch_attn = use_torch_attn
         self.group_norm = nn.GroupNorm(32, in_ch)
-        if torch_mha:
+        if use_torch_attn:
             self.mha = nn.MultiheadAttention(in_ch, 1, batch_first=True)
         else:
             self.proj_q = nn.Conv2d(in_ch, in_ch, 1, stride=1, padding=0)
@@ -66,7 +66,7 @@ class AttnBlock(nn.Module):
         B, C, H, W = x.shape
         h = self.group_norm(x)
 
-        if self.torch_mha:
+        if self.use_torch_attn:
             h = h.view(-1, C, H * W).swapaxes(1, 2)
             with sdpa_kernel([SDPBackend.FLASH_ATTENTION]):
                 h = self.mha(h, h, h)[0]
@@ -90,7 +90,7 @@ class AttnBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout, attn=True):
+    def __init__(self, in_ch, out_ch, tdim, dropout, attn=True, use_torch_attn=True):
         super().__init__()
         self.block1 = nn.Sequential(
             nn.GroupNorm(32, in_ch),
@@ -112,7 +112,7 @@ class ResBlock(nn.Module):
         else:
             self.shortcut = nn.Identity()
         if attn:
-            self.attn = AttnBlock(out_ch)
+            self.attn = AttnBlock(out_ch, use_torch_attn=use_torch_attn)
         else:
             self.attn = nn.Identity()
 
@@ -127,7 +127,7 @@ class ResBlock(nn.Module):
 
 
 class Diffusion_UNet(nn.Module):
-    def __init__(self, ch=64, ch_mult=[1, 2, 2, 2], num_res_blocks=2, dropout=0.15):
+    def __init__(self, ch=64, ch_mult=[1, 2, 2, 2], num_res_blocks=2, dropout=0.15, use_torch_attn=True):
         super().__init__()
         tdim = ch
         self.time_embedding = TimeEmbedding(tdim)
@@ -138,7 +138,8 @@ class Diffusion_UNet(nn.Module):
         for i, mult in enumerate(ch_mult):
             out_ch = ch * mult
             for _ in range(num_res_blocks):
-                self.downblocks.append(ResBlock(in_ch=now_ch, out_ch=out_ch, tdim=tdim, dropout=dropout))
+                self.downblocks.append(ResBlock(in_ch=now_ch, out_ch=out_ch, tdim=tdim, 
+                                                dropout=dropout, use_torch_attn=use_torch_attn))
                 now_ch = out_ch
                 chs.append(now_ch)
             if i != len(ch_mult) - 1:
@@ -146,7 +147,7 @@ class Diffusion_UNet(nn.Module):
                 chs.append(now_ch)
 
         self.middleblocks = nn.ModuleList([
-            ResBlock(now_ch, now_ch, tdim, dropout, attn=True),
+            ResBlock(now_ch, now_ch, tdim, dropout, attn=True, use_torch_attn=use_torch_attn),
             ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
         ])
 
@@ -154,7 +155,8 @@ class Diffusion_UNet(nn.Module):
         for i, mult in reversed(list(enumerate(ch_mult))):
             out_ch = ch * mult
             for _ in range(num_res_blocks + 1):
-                self.upblocks.append(ResBlock(in_ch=chs.pop() + now_ch, out_ch=out_ch, tdim=tdim, dropout=dropout, attn=False))
+                self.upblocks.append(ResBlock(in_ch=chs.pop() + now_ch, out_ch=out_ch, tdim=tdim, 
+                                              dropout=dropout, attn=False, use_torch_attn=use_torch_attn))
                 now_ch = out_ch
             if i != 0:
                 self.upblocks.append(UpSample(now_ch))
@@ -166,7 +168,7 @@ class Diffusion_UNet(nn.Module):
             nn.Conv2d(now_ch, 1, 3, stride=1, padding=1)
         )
  
-    def forward(self, x, t=torch.randint(0, 1000, size=(16,)).cuda()):
+    def forward(self, x, t=torch.randint(0, 1000, size=(4,)).cuda()):
         # Timestep embedding
         temb = self.time_embedding(t)
         # Downsampling
@@ -191,4 +193,4 @@ class Diffusion_UNet(nn.Module):
 
 if __name__ == '__main__':
     model = Diffusion_UNet()
-    summary(model, input_size=(16, 2, 128, 128))
+    summary(model, input_size=(4, 2, 128, 128))

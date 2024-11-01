@@ -110,7 +110,7 @@ class DDPM_Sampler(nn.Module):
     
 
 class DDIM_Sampler(nn.Module):
-    def __init__(self, model, beta_1, beta_T, beta_scdl, T, ddim_sampling_steps=100, eta=1):
+    def __init__(self, model, beta_1, beta_T, beta_scdl, T, ddim_sampling_steps=200, eta=1):
         """
         Sampling process of Denoising Diffusion Implicit Models (DDIM), Jiaming Song et al.
         """
