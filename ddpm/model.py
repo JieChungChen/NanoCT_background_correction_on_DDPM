@@ -90,7 +90,7 @@ class AttnBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout, attn=True, use_torch_attn=True):
+    def __init__(self, in_ch, out_ch, tdim, dropout, attn=False, use_torch_attn=True):
         super().__init__()
         self.block1 = nn.Sequential(
             nn.GroupNorm(32, in_ch),
@@ -127,7 +127,7 @@ class ResBlock(nn.Module):
 
 
 class Diffusion_UNet(nn.Module):
-    def __init__(self, ch=64, ch_mult=[1, 2, 2, 2], num_res_blocks=2, dropout=0.15, use_torch_attn=True):
+    def __init__(self, ch=64, ch_mult=[1, 2, 2, 2], num_res_blocks=2, dropout=0.15, use_torch_attn=False):
         super().__init__()
         tdim = ch
         self.time_embedding = TimeEmbedding(tdim)
@@ -147,7 +147,7 @@ class Diffusion_UNet(nn.Module):
                 chs.append(now_ch)
 
         self.middleblocks = nn.ModuleList([
-            ResBlock(now_ch, now_ch, tdim, dropout, attn=True, use_torch_attn=use_torch_attn),
+            ResBlock(now_ch, now_ch, tdim, dropout, use_torch_attn=use_torch_attn),
             ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
         ])
 
@@ -156,7 +156,7 @@ class Diffusion_UNet(nn.Module):
             out_ch = ch * mult
             for _ in range(num_res_blocks + 1):
                 self.upblocks.append(ResBlock(in_ch=chs.pop() + now_ch, out_ch=out_ch, tdim=tdim, 
-                                              dropout=dropout, attn=False, use_torch_attn=use_torch_attn))
+                                              dropout=dropout, attn=False))
                 now_ch = out_ch
             if i != 0:
                 self.upblocks.append(UpSample(now_ch))
@@ -168,7 +168,7 @@ class Diffusion_UNet(nn.Module):
             nn.Conv2d(now_ch, 1, 3, stride=1, padding=1)
         )
  
-    def forward(self, x, t=torch.randint(0, 1000, size=(4,)).cuda()):
+    def forward(self, x, t=torch.randint(0, 1000, size=(8,)).cuda()):
         # Timestep embedding
         temb = self.time_embedding(t)
         # Downsampling
@@ -193,4 +193,4 @@ class Diffusion_UNet(nn.Module):
 
 if __name__ == '__main__':
     model = Diffusion_UNet()
-    summary(model, input_size=(4, 2, 128, 128))
+    summary(model, input_size=(8, 2, 128, 128))

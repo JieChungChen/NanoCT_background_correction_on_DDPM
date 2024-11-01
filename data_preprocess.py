@@ -46,7 +46,6 @@ class NanoCT_Dataset(Dataset):
         self.input_imgs = self.input_imgs/inputs_max
         self.target_imgs = ref_imgs/refs_max
         self.target_imgs = self.target_imgs.repeat(num_sample, 1, 1, 1)
-        print(self.input_imgs[0].max(), self.target_imgs[2].max())
         print('training data preprocessing finished: %.2f sec'%(time.time()-t_start))
 
     def __getitem__(self, index):
