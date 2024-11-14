@@ -90,7 +90,7 @@ class AttnBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout, attn=True, use_torch_attn=True):
+    def __init__(self, in_ch, out_ch, tdim, dropout, attn=True, use_torch_attn=False):
         super().__init__()
         self.block1 = nn.Sequential(
             nn.GroupNorm(32, in_ch),
@@ -127,24 +127,30 @@ class ResBlock(nn.Module):
 
 
 class Diffusion_UNet(nn.Module):
-    def __init__(self, ch=64, ch_mult=[1, 2, 2, 2], num_res_blocks=2, dropout=0.15, use_torch_attn=False):
+    def __init__(self, ch=160, ch_mult=[1, 2, 2, 4], num_res_blocks=2, dropout=0., attn_ds=[8], use_torch_attn=False):
         super().__init__()
         tdim = ch
         self.time_embedding = TimeEmbedding(tdim)
         self.head = nn.Conv2d(2, ch, kernel_size=3, stride=1, padding=1)
         self.downblocks = nn.ModuleList()
-        chs = [ch]  # record output channel when dowmsample for upsample
+        down_chs = [ch]
         now_ch = ch
+        ds = 1
         for i, mult in enumerate(ch_mult):
             out_ch = ch * mult
             for _ in range(num_res_blocks):
-                self.downblocks.append(ResBlock(in_ch=now_ch, out_ch=out_ch, tdim=tdim, 
-                                                dropout=dropout, use_torch_attn=use_torch_attn))
+                if ds in attn_ds:
+                    self.downblocks.append(ResBlock(in_ch=now_ch, out_ch=out_ch, tdim=tdim, 
+                                                    dropout=dropout, use_torch_attn=use_torch_attn))
+                else:
+                    self.downblocks.append(ResBlock(in_ch=now_ch, out_ch=out_ch, tdim=tdim, 
+                                                    attn=False, dropout=dropout))
                 now_ch = out_ch
-                chs.append(now_ch)
+                down_chs.append(now_ch)
             if i != len(ch_mult) - 1:
                 self.downblocks.append(DownSample(now_ch))
-                chs.append(now_ch)
+                down_chs.append(now_ch)
+                ds *= 2
 
         self.middleblocks = nn.ModuleList([
             ResBlock(now_ch, now_ch, tdim, dropout, use_torch_attn=use_torch_attn),
@@ -155,12 +161,17 @@ class Diffusion_UNet(nn.Module):
         for i, mult in reversed(list(enumerate(ch_mult))):
             out_ch = ch * mult
             for _ in range(num_res_blocks + 1):
-                self.upblocks.append(ResBlock(in_ch=chs.pop() + now_ch, out_ch=out_ch, tdim=tdim, 
-                                              dropout=dropout, attn=False))
+                if ds in attn_ds:
+                    self.upblocks.append(ResBlock(in_ch=down_chs.pop() + now_ch, out_ch=out_ch, tdim=tdim, attn=True,
+                                                    dropout=dropout, use_torch_attn=use_torch_attn))
+                else:
+                    self.upblocks.append(ResBlock(in_ch=down_chs.pop() + now_ch, out_ch=out_ch, tdim=tdim, attn=False,
+                                                    dropout=dropout))
                 now_ch = out_ch
             if i != 0:
                 self.upblocks.append(UpSample(now_ch))
-        assert len(chs) == 0
+                ds //= 2
+        assert len(down_chs) == 0
 
         self.tail = nn.Sequential(
             nn.GroupNorm(32, now_ch),
@@ -168,7 +179,7 @@ class Diffusion_UNet(nn.Module):
             nn.Conv2d(now_ch, 1, 3, stride=1, padding=1)
         )
  
-    def forward(self, x, t=torch.randint(0, 1000, size=(8,)).cuda()):
+    def forward(self, x, t=torch.randint(0, 1000, size=(4,)).cuda()):
         # Timestep embedding
         temb = self.time_embedding(t)
         # Downsampling
@@ -193,4 +204,4 @@ class Diffusion_UNet(nn.Module):
 
 if __name__ == '__main__':
     model = Diffusion_UNet()
-    summary(model, input_size=(8, 2, 128, 128))
+    summary(model, input_size=(4, 2, 256, 256))

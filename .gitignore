@@ -10,3 +10,4 @@ figures/
 tif-no ref/
 
 utils.py
+checkpoints/config.txt

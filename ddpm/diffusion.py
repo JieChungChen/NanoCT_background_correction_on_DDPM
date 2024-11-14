@@ -110,7 +110,7 @@ class DDPM_Sampler(nn.Module):
     
 
 class DDIM_Sampler(nn.Module):
-    def __init__(self, model, beta_1, beta_T, beta_scdl, T, ddim_sampling_steps=200, eta=1):
+    def __init__(self, model, beta_1, beta_T, beta_scdl, T, ddim_sampling_steps=50, eta=1):
         """
         Sampling process of Denoising Diffusion Implicit Models (DDIM), Jiaming Song et al.
         """
@@ -136,7 +136,7 @@ class DDIM_Sampler(nn.Module):
         self.register_buffer('sqrt_recipm1_alphas_bar', torch.sqrt(1. / self.alphas_bar - 1))
         assert self.coeff[0] == 0.0 and self.sqrt_alpha_i_min_1[0] == 1.0, 'DDIM parameter error'
 
-    def ddim_p_sample(self, condit, x_t, i, clip=True):
+    def ddim_p_sample(self, condit, x_t, i, clip=False):
         t = self.tau[i]
         batched_time = torch.full((x_t.shape[0],), t, dtype=torch.long).cuda()
         pred_noise = self.model(torch.cat([condit, x_t], dim=1), batched_time) 
@@ -150,6 +150,7 @@ class DDIM_Sampler(nn.Module):
         x_t_minus_1 = mean + self.sigma[i] * noise
         return x_t_minus_1
 
+    @torch.no_grad()
     def forward(self, condit, x_T, save_process=False):
         x_t = x_T
         for i in tqdm(reversed(range(self.ddim_steps)), desc='DDIM Sampling', total=self.ddim_steps):

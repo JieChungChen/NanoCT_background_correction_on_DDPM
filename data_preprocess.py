@@ -22,6 +22,7 @@ class RndRotateTransform:
 class NanoCT_Dataset(Dataset):
     def __init__(self, data_dir, img_size, num_sample=100, transform=True):
         t_start = time.time()
+        self.size = img_size
         self.transform = transform
         dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
         ref_files = sorted(glob.glob("%s/ref/*.tif"%data_dir))
@@ -55,7 +56,7 @@ class NanoCT_Dataset(Dataset):
                 RndRotateTransform(),
                 transforms.RandomVerticalFlip(p=0.5),
                 transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomResizedCrop(128, scale=(0.9, 1), ratio=(1, 1))
+                transforms.RandomResizedCrop(self.size, scale=(0.9, 1), ratio=(1, 1))
             ])
             transformed = aug(torch.cat([x, ref], dim=0))
             x, ref = transformed[:1], transformed[1:]
