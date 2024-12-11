@@ -6,9 +6,9 @@
 
 __pycache__/
 training_data_n/
-valid_data_n/
 figures/
 tif-no ref/
+valid_data_n/
 
 utils.py
 checkpoints/config.txt

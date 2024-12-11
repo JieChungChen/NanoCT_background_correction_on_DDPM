@@ -127,11 +127,14 @@ class ResBlock(nn.Module):
 
 
 class Diffusion_UNet(nn.Module):
-    def __init__(self, ch=160, ch_mult=[1, 2, 2, 4], num_res_blocks=2, dropout=0., attn_ds=[8], use_torch_attn=False):
+    def __init__(self, ch=160, ch_mult=[1, 2, 2, 4], num_res_blocks=2, dropout=0., 
+                 attn_ds=[8], use_torch_attn=False, size=256, input_ch=2):
         super().__init__()
         tdim = ch
+        self.in_ch = input_ch
+        self.null_cond = nn.Parameter(torch.randn(1, size, size))
         self.time_embedding = TimeEmbedding(tdim)
-        self.head = nn.Conv2d(2, ch, kernel_size=3, stride=1, padding=1)
+        self.head = nn.Conv2d(input_ch, ch, kernel_size=3, stride=1, padding=1)
         self.downblocks = nn.ModuleList()
         down_chs = [ch]
         now_ch = ch
@@ -179,7 +182,10 @@ class Diffusion_UNet(nn.Module):
             nn.Conv2d(now_ch, 1, 3, stride=1, padding=1)
         )
  
-    def forward(self, x, t=torch.randint(0, 1000, size=(4,)).cuda()):
+    def forward(self, x, t, rnd_cond=None):
+        if rnd_cond is not None:
+            for i in range(self.in_ch-1):
+                x[rnd_cond, i] = self.null_cond
         # Timestep embedding
         temb = self.time_embedding(t)
         # Downsampling

@@ -57,7 +57,7 @@ class GaussianDiffusionTrainer(nn.Module):
         if n_sample>0:
             rnd_cond = torch.randperm(B)[:rnd_cond.sum()]
             condit[rnd_cond] = x_t[rnd_cond]
-        loss = F.mse_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
+        loss = F.l1_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
         return loss
 
 

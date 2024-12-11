@@ -10,19 +10,19 @@ from torch.utils.data.distributed import DistributedSampler
 from data_preprocess import NanoCT_Dataset
 from ddpm.model import Diffusion_UNet
 from ddpm.diffusion import GaussianDiffusionTrainer
-from utils import check_distributed, model_eval, model_eval_for_val, inference
+from utils import check_distributed, model_eval, model_eval_for_val, val_inference, test_inference
 
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--train', default=True, type=bool)
+    parser.add_argument('--train', default=False, type=bool)
     # Data Settings
     parser.add_argument('--data_dir', default='./training_data_n', type=str)
     parser.add_argument('--model_save_dir', default='./checkpoints', type=str)
     parser.add_argument('--load_weight', default=True, type=bool)
     parser.add_argument('--img_size', default=256, type=int)
-    parser.add_argument('--checkpoint', default='ckpt_step=18750.pt', type=str)   
+    parser.add_argument('--checkpoint', default='ckpt_step=48437.pt', type=str)   
     # Training Settings
     parser.add_argument('--use_mix_precision', default=True, type=bool)
     parser.add_argument('--uncon_ratio', default=0.5, type=float)
@@ -32,8 +32,8 @@ def get_args_parser():
     parser.add_argument('--grad_clip', default=1., type=float)  
     parser.add_argument('--device', default='cuda:0', type=str)
     parser.add_argument('--batch_size', default=4, type=int)
-    parser.add_argument('--accumulate_step', default=2, type=int)
-    parser.add_argument('--epoch', default=1000, type=int)        
+    parser.add_argument('--accumulate_step', default=8, type=int)
+    parser.add_argument('--epoch', default=500, type=int)        
     # DDPM Settings
     parser.add_argument('--T', default=1000, type=float)
     parser.add_argument('--beta_sche', default='quad', type=str)
@@ -73,7 +73,7 @@ def main(args):
     model.train()
     optimizer.zero_grad(set_to_none=True)
 
-    step = 0
+    step = 0 
     for e in range(args.epoch):
         # generate new dataset
         if e % 5 == 0:
@@ -128,8 +128,8 @@ if __name__ == '__main__':
         main(args)
     else:
         model = Diffusion_UNet(use_torch_attn=args.use_torch_attn).to(args.device)
-        # model = torch.nn.DataParallel(model)
+        model = torch.nn.DataParallel(model)
         model.load_state_dict(torch.load(args.model_save_dir+'/'+args.checkpoint, map_location=args.device), strict=False)
         model.eval()
         print("Model weight load down.")
-        inference(args, model=model)
+        test_inference(args, model=model)
