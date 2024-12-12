@@ -59,54 +59,6 @@ class GaussianDiffusionTrainer(nn.Module):
             condit[rnd_cond] = x_t[rnd_cond]
         loss = F.l1_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
         return loss
-
-
-class DDPM_Sampler(nn.Module):
-    def __init__(self, model, beta_1, beta_T, beta_scdl, T):
-        """
-        Sampling process of Denoising Diffusion Probabilistic Models (DDPM)
-        All the calculations are base on https://arxiv.org/pdf/2006.11239
-        """
-        super().__init__()
-        self.model = model
-        self.T = T
-        betas = make_beta_schedule(beta_scdl, T, beta_1, beta_T)
-        alphas = 1. - betas
-        alphas_bar = torch.cumprod(alphas, dim=0)
-        alphas_bar_prev = torch.cat((torch.ones(1), alphas_bar[:-1]))
-
-        self.register_buffer('betas', betas)
-        self.register_buffer('alphas_bar', alphas_bar)
-        self.register_buffer('alphas_bar_prev', alphas_bar_prev)
-        # for posterior q(x_{t-1} | x_t, x_0)
-        posterior_variance = betas * (1. - alphas_bar_prev) / (1. - alphas_bar) # beta_wave_t
-        self.register_buffer('coeff1', torch.sqrt(1. / alphas))
-        self.register_buffer('coeff2', self.coeff1 * (1. - alphas) / torch.sqrt(1. - alphas_bar))
-        self.register_buffer('posterior_log_variance_clipped', torch.log(np.maximum(posterior_variance, 1e-20)))
-
-    def posterior_mean(self, x_t, t, eps):
-        assert x_t.shape == eps.shape
-        return self.coeff1[t] * x_t - self.coeff2[t] * eps
-    
-    def p_mean_variance(self, condit, x_t, t):
-        B = x_t.shape[0]
-        tensor_t = torch.ones((B,), device=x_t.device) * t
-        eps = self.model(torch.cat([condit, x_t], dim=1), tensor_t)
-        mean = self.posterior_mean(x_t, t, eps)
-        log_var = self.posterior_log_variance_clipped[t]
-        return mean, log_var
-
-    def forward(self, condit, x_T, save_process=False):
-        x_t = x_T
-        for t in tqdm(reversed(range(self.T)), dynamic_ncols=True, desc='DDPM Sampling', total=self.T):
-            mean, var= self.p_mean_variance(condit, x_t, t)
-            noise = torch.randn_like(x_t) if t > 0 else torch.zeros_like(x_t)
-            x_t = mean + noise * torch.exp(0.5 * var)
-            assert torch.isnan(x_t).int().sum() == 0, "nan in tensor."
-            if save_process and t % 10 == 0:
-                torchvision.utils.save_image(x_t, 'figures/%s.png'%str(t).zfill(3), normalize=True)
-        x_0 = x_t
-        return torch.clip(x_0, -1, 1) 
     
 
 class DDIM_Sampler(nn.Module):
