@@ -223,4 +223,52 @@ def mosaic_norm(imgs, n_rows):
             img_id += 1 
     return imgs
 
-inference_val()
+
+def mosaic(patch_dir='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-result', n_rows=19, raw_tif=False):
+    files = sorted(glob.glob("%s/*.tif"%patch_dir))
+    # imgs = np.flipud(imread('./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-dref.tif'))
+    imgs = []
+    for f in files:
+        imgs.append(np.array(Image.open(f).convert('L')))
+    imgs = np.array(imgs)
+    print(imgs.shape)
+
+    size = 256
+    n_cols = len(imgs)//n_rows
+    mosaic = np.zeros((n_rows*size, n_cols*size))
+    img_id = 0
+    for i in reversed(range(n_rows)):
+        for j in range(n_cols):
+            im = imgs[img_id]
+            if i!=(n_rows-1) or j!=0:
+                diff, count = 0, 0
+                if i==n_rows-1 or j>0:
+                    b_avg = np.mean(im[30:-30, :128])
+                    prev_b_avg = np.mean(imgs[img_id-1][30:-30, -128:])
+                    diff += (prev_b_avg-b_avg)
+                    count += 1
+                if i<(n_rows-1):
+                    b_avg = np.mean(im[-128:, :-30])
+                    prev_b_avg = np.mean(imgs[img_id-n_cols][:128, :-30])
+                    diff += prev_b_avg-b_avg
+                    count += 1
+                im = im + (diff/count)
+            imgs[img_id] = im
+            mosaic[i*size:(i+1)*size, j*size:(j+1)*size] = im
+            img_id += 1 
+
+    if raw_tif:
+        for i, f in enumerate(files):
+            im = Image.fromarray(imgs[i])
+            im.save(f)
+
+    plt.imshow(mosaic, cmap='gray', vmax=mosaic.max(), vmin=mosaic.min())
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig('pred.tif',bbox_inches='tight', pad_inches=0.0, dpi=1200)
+    plt.close()
+
+
+mosaic()
+
+# inference_val()

@@ -14,4 +14,7 @@ In TXM, each pixel of the detector may respond differently to incoming X-rays du
 
 * multi-gpu command  
   `torchrun --standalone --nproc_per_node=4 main.py`
- 
+
+### Results
+
+![img](fig/result_mosaic_19x19.png)
