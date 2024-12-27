@@ -4,7 +4,7 @@
 
 In TXM, each pixel of the detector may respond differently to incoming X-rays due to variations in sensitivity and illumination. These discrepancies can lead to image artifacts, such as shading or uneven brightness, which can obscure important details in the sample being imaged.
 
-![img](fig/introduction.png)
+![img](figs/introduction.png)
 
 ### model architecture 
 
