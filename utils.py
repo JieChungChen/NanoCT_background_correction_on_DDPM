@@ -12,7 +12,7 @@ mpl.use('Agg')
 mpl.rcParams['figure.dpi'] = 300
 import matplotlib.pyplot as plt
 
-from ddpm.diffusion import DDPM_Sampler, DDIM_Sampler
+from ddpm.diffusion import DDIM_Sampler
 
 
 def check_distributed():

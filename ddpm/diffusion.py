@@ -30,13 +30,13 @@ def make_beta_schedule(schedule, n_timestep, beta_0=1e-4, beta_T=2e-2, cosine_s=
     return betas
 
 
-class GaussianDiffusionTrainer(nn.Module):
-    def __init__(self, model, beta_1, beta_T, T, uncon_ratio):
+class DDPM_Trainer(nn.Module):
+    def __init__(self, model, beta_1, beta_T, beta_scdl, T, uncon_ratio):
         super().__init__()
         self.model = model
         self.T = T
         self.ratio = uncon_ratio
-        betas =  make_beta_schedule('quad', T, beta_1, beta_T)
+        betas =  make_beta_schedule(beta_scdl, T, beta_1, beta_T)
         alphas = 1. - betas
         alphas_bar = torch.cumprod(alphas, dim=0)
         # calculations for diffusion q(x_t | x_{t-1})
@@ -52,14 +52,11 @@ class GaussianDiffusionTrainer(nn.Module):
         # add noise accord to the step t
         x_t = (sqrt_alphas_bar_t.view(-1, 1, 1, 1) * x_0 + sqrt_one_minus_alphas_bar_t.view(-1, 1, 1, 1) * noise)
         # randomly remove the condition from half of the batch, each sample has self.ratio chance to be unconditional
-        rnd_cond = np.random.choice([0, 1], size=B, p=[1-self.ratio, self.ratio])
-        n_sample = rnd_cond.sum()
-        if n_sample>0:
-            rnd_cond = torch.randperm(B)[:rnd_cond.sum()]
-            condit[rnd_cond] = x_t[rnd_cond]
-        loss = F.l1_loss(self.model(torch.cat([condit, x_t], dim=1), t), noise, reduction='none')
+        rnd_cond = np.random.choice(B, size=int(B*self.ratio), replace=False)
+        inputs = torch.cat([condit, x_t], dim=1)
+        loss = F.l1_loss(self.model(inputs, t, rnd_cond), noise, reduction='none')
         return loss
-    
+        
 
 class DDIM_Sampler(nn.Module):
     def __init__(self, model, beta_1, beta_T, beta_scdl, T, ddim_sampling_steps=50, eta=1):

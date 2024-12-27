@@ -17,7 +17,7 @@ from ddpm.diffusion import DDIM_Sampler
 def inference_train():
     model = Diffusion_UNet(use_torch_attn=False, input_ch=3).cuda()
     model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load('ckpts_pair/ckpt_step=77343.pt', map_location='cuda:0'), strict=False)
+    model.load_state_dict(torch.load('ckpts_pair/ddpm_pair_160K.pt', map_location='cuda:0'), strict=False)
     model.eval()
 
     size = 256
@@ -26,7 +26,7 @@ def inference_train():
     sampler = DDIM_Sampler(model, 1e-4, 2e-2, 'linear', 1000, ddim_sampling_steps=50).cuda()
     with torch.no_grad():
         for i in range(10):
-            input_imgs, ref_img = training_data[i*100][0]
+            input_imgs, ref_img = training_data[i*100]
             ref_img = ref_img.squeeze()
             torch.manual_seed(29)
             noise = torch.randn(size=[1, 1, size, size], device='cuda:0')
@@ -38,13 +38,14 @@ def inference_train():
             obj_pred_1 = (obj_pred_1-obj_pred_1.min())/(obj_pred_1.max()-obj_pred_1.min())
             obj_pred_2 = (obj_pred_2-obj_pred_2.min())/(obj_pred_2.max()-obj_pred_2.min())
 
-            plot_2x4(input_imgs, pred, ref_img, obj_pred_1, obj_pred_2, input_imgs[0]/ref_img, input_imgs[1]/ref_img, i)
+            plot_2x4(input_imgs, pred, ref_img, obj_pred_1, obj_pred_2, 
+                     (input_imgs[0]/ref_img).numpy(), (input_imgs[1]/ref_img).numpy(), i)
 
 
 def inference_val():
     model = Diffusion_UNet(use_torch_attn=False, input_ch=3).cuda()
     model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load('ckpts_pair/ckpt_step=78125.pt', map_location='cuda:0'), strict=False)
+    model.load_state_dict(torch.load('ckpts_pair/ddpm_pair_160K.pt', map_location='cuda:0'), strict=False)
     model.eval()
 
     size = 256
@@ -75,10 +76,10 @@ def inference_val():
 
             plot_2x4(input_imgs, pred, ref_img, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, i)
 
-def inference_test(folder='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15', compare=False):
+def inference_test(folder='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15', compare=True):
     model = Diffusion_UNet(use_torch_attn=False, input_ch=3).cuda()
     model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load('ckpts_pair/ckpt_step=77343.pt', map_location='cuda:0'), strict=False)
+    model.load_state_dict(torch.load('ckpts_pair/ddpm_pair_130K.pt', map_location='cuda:0'), strict=False)
     model.eval()
 
     file_path='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15.tif'
@@ -95,7 +96,7 @@ def inference_test(folder='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15', compa
             input_1 = torch.Tensor(raw_imgs[i]/raw_imgs[i].max()).unsqueeze(0).float()
             input_2 = torch.Tensor(raw_imgs[i+1]/raw_imgs[i+1].max()).unsqueeze(0).float()
             input_imgs = torch.cat([input_1, input_2], dim=0)
-            torch.manual_seed(2024)
+            # torch.manual_seed(29)
             noise = torch.randn(size=[1, 1, size, size], device='cuda:0')
             pred = sampler(input_imgs.view(1, 2, size, size).cuda(), noise).squeeze().cpu()
             obj_pred_1 = input_imgs[0]/pred
@@ -103,9 +104,9 @@ def inference_test(folder='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15', compa
             obj_pred_1 = torch.clamp(obj_pred_1, min=obj_pred_1[:, :-30].min(), max=obj_pred_1[:, :-30].max())
             obj_pred_2 = torch.clamp(obj_pred_2, min=obj_pred_2[:, :-30].min(), max=obj_pred_2[:, :-30].max())
             # obj_pred_1, obj_pred_2 = min_max_norm(obj_pred_1), min_max_norm(obj_pred_2)
-            imgs.append(obj_pred_1)
+            imgs.append(obj_pred_1.unsqueeze(2))
             if i == len(raw_imgs)-2:
-                imgs.append(obj_pred_2)
+                imgs.append(obj_pred_2.unsqueeze(2))
 
             if compare:
                 fig = plt.figure(figsize=(6, 4))
@@ -138,13 +139,15 @@ def inference_test(folder='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15', compa
                 plt.savefig(folder+'-result/compare/'+str(i).zfill(3)+'.png')
                 plt.close()
         
-        imgs = mosaic_norm(imgs, n_rows=19)
+        # imgs = mosaic_norm(imgs, n_rows=19)
         imgs = torch.cat(imgs, dim=2).permute(2, 0, 1)
         g_min = imgs.min()
         factor = imgs.max()-imgs.min()
         for i, im in enumerate(imgs):
             im = (im-g_min)/factor
-            save_image(im, folder+'-result/'+str(i).zfill(3)+'.tif', normalize=False)
+            im = Image.fromarray(im.numpy())
+            im.save(folder+'-result/'+str(i).zfill(3)+'.tif')
+            # save_image(im, folder+'-result/'+str(i).zfill(3)+'.tif', normalize=False)
 
 def min_max_norm(x):
     return (x-x.min())/(x.max()-x.min())
@@ -229,7 +232,7 @@ def mosaic(patch_dir='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-result', n_r
     # imgs = np.flipud(imread('./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-dref.tif'))
     imgs = []
     for f in files:
-        imgs.append(np.array(Image.open(f).convert('L')))
+        imgs.append(np.array(Image.open(f)))
     imgs = np.array(imgs)
     print(imgs.shape)
 
@@ -243,16 +246,17 @@ def mosaic(patch_dir='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-result', n_r
             if i!=(n_rows-1) or j!=0:
                 diff, count = 0, 0
                 if i==n_rows-1 or j>0:
-                    b_avg = np.mean(im[30:-30, :128])
-                    prev_b_avg = np.mean(imgs[img_id-1][30:-30, -128:])
+                    b_avg = np.mean(im[30:-30, 5:])
+                    prev_b_avg = np.mean(imgs[img_id-1][30:-30, -5:])
                     diff += (prev_b_avg-b_avg)
                     count += 1
                 if i<(n_rows-1):
-                    b_avg = np.mean(im[-128:, :-30])
-                    prev_b_avg = np.mean(imgs[img_id-n_cols][:128, :-30])
+                    b_avg = np.mean(im[-5:, :-30])
+                    prev_b_avg = np.mean(imgs[img_id-n_cols][:5, :-30])
                     diff += prev_b_avg-b_avg
                     count += 1
-                im = im + (diff/count)
+                if (diff/count)>0.02:
+                    im = im + (diff/count)
             imgs[img_id] = im
             mosaic[i*size:(i+1)*size, j*size:(j+1)*size] = im
             img_id += 1 
@@ -262,13 +266,8 @@ def mosaic(patch_dir='./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-result', n_r
             im = Image.fromarray(imgs[i])
             im.save(f)
 
-    plt.imshow(mosaic, cmap='gray', vmax=mosaic.max(), vmin=mosaic.min())
-    plt.axis('off')
-    plt.tight_layout()
-    plt.savefig('pred.tif',bbox_inches='tight', pad_inches=0.0, dpi=1200)
-    plt.close()
+    mosaic = Image.fromarray(mosaic)
+    mosaic.save('pred.tif')
 
-
+# inference_test()
 mosaic()
-
-# inference_val()
