@@ -8,7 +8,7 @@ In TXM, each pixel of the detector may respond differently to incoming X-rays du
 
 ### model architecture 
 
-![img](fig/architecture.png)
+![img](figs/architecture.png)
 
 ### training
 
@@ -17,4 +17,4 @@ In TXM, each pixel of the detector may respond differently to incoming X-rays du
 
 ### Results
 
-![img](fig/result_mosaic_19x19.png)
+![img](figs/result_mosaic_19x19.png)
