@@ -12,3 +12,5 @@ valid_data_n/
 
 utils.py
 checkpoints/config.txt
+inference_unet.py
+unet.py
