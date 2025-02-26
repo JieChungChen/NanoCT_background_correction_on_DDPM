@@ -15,6 +15,7 @@ class RndRotateTransform:
         angle = random.choice(self.angles)
         return TF.rotate(x, angle)
     
+    
 class RndScaler:
     def __init__(self, f):
         self.factor = f

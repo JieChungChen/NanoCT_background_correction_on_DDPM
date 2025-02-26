@@ -1,7 +1,7 @@
 name: DDPM For Background Correction
 
 data_settings:
-  train_data_dir: training_data_n
+  train_data_dir: training_data
   model_save_dir: checkpoints
   img_size: 256
   dataset_init_every_n_epoch: 5
@@ -34,4 +34,4 @@ ddpm_settings:
   beta_scdl: linear
   beta_1: 1.e-4
   beta_T: 0.02
-  uncon_ratio: 0.25
+  uncon_ratio: 0.5

@@ -52,7 +52,7 @@ class DDPM_Trainer(nn.Module):
         # add noise accord to the step t
         x_t = (sqrt_alphas_bar_t.view(-1, 1, 1, 1) * x_0 + sqrt_one_minus_alphas_bar_t.view(-1, 1, 1, 1) * noise)
         # randomly remove the condition from half of the batch, each sample has self.ratio chance to be unconditional
-        rnd_cond = np.random.choice(B, size=int(B*self.ratio), replace=False)
+        rnd_cond = np.random.choice([True, False], size=B, p=[self.ratio, 1-self.ratio])
         inputs = torch.cat([condit, x_t], dim=1)
         loss = F.mse_loss(self.model(inputs, t, rnd_cond), noise, reduction='none')
         return loss

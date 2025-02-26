@@ -190,7 +190,7 @@ class Diffusion_UNet(nn.Module):
     def forward(self, x, t, rnd_cond=None):
         if rnd_cond is not None:
             for i in range(self.in_ch-1):
-                x[rnd_cond, i] = x[rnd_cond, -1]
+                x[rnd_cond, i] = 0
 
         # Timestep embedding
         temb = self.time_embedding(t)

@@ -9,13 +9,12 @@ from torch.utils.data.distributed import DistributedSampler
 from data_preprocess import NanoCT_Pair_Dataset
 from ddpm.model import Diffusion_UNet
 from ddpm.diffusion import DDPM_Trainer
-from utils import check_distributed, val_inference
+from utils import check_distributed
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--train', default=True, type=bool)
-    parser.add_argument('--configs', default='configs/ddpm_pair_d5.yml', type=str)
+    parser.add_argument('--configs', default='configs/ddpm_pair_v4.yml', type=str)
     return parser
 
 
@@ -110,13 +109,4 @@ def main(args):
 
 if __name__ == '__main__':
     args = get_args_parser().parse_args()
-
-    if args.train:
-        main(args)
-    else:
-        model = Diffusion_UNet(use_torch_attn=args.use_torch_attn).to(args.device)
-        model = torch.nn.DataParallel(model)
-        model.load_state_dict(torch.load(args.model_save_dir+'/'+args.checkpoint, map_location=args.device), strict=False)
-        model.eval()
-        print("Model weight load down.")
-        val_inference(args, model=model)
+    main(args)

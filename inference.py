@@ -12,61 +12,64 @@ from skimage.metrics import structural_similarity as ssim
 from data_preprocess import NanoCT_Pair_Dataset
 from ddpm.model import Diffusion_UNet
 from ddpm.diffusion import DDIM_Sampler
-from utils import min_max_norm, calc_psnr
+from utils import min_max_norm, calc_psnr, mosaic
 
 
-def plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, i):
-    fig = plt.figure(figsize=(6.5, 4))
-    plt.subplot(231)
-    plt.title('input img 1')
-    plt.axis('off')
-    plt.imshow(input_imgs[0], cmap='gray')
+def plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, ref_pred, i):
+    fig, axs = plt.subplots(ncols=4, nrows=2, figsize=(9, 4))
+    gs = axs[0, -1].get_gridspec()
+    for ax in axs[:, -1]:
+        ax.remove()
 
-    plt.subplot(234)
-    plt.title('input img 2')
-    plt.axis('off')
-    plt.imshow(input_imgs[1], cmap='gray')
+    axs[0, 0].set_title('input img 1')
+    axs[0, 0].axis('off')
+    axs[0, 0].imshow(input_imgs[0], cmap='gray')
 
-    plt.subplot(232)
-    plt.title('true sample 1')
-    plt.axis('off')
+    axs[1, 0].set_title('input img 2')
+    axs[1, 0].axis('off')
+    axs[1, 0].imshow(input_imgs[1], cmap='gray')
+
+    axs[0, 1].set_title('true sample 1')
+    axs[0, 1].axis('off')
     obj_true_1 = min_max_norm(obj_true_1)
-    plt.imshow(obj_true_1, cmap='gray')
+    axs[0, 1].imshow(obj_true_1, cmap='gray')
 
-    plt.subplot(235)
-    plt.title('true sample 2')
-    plt.axis('off')
+    axs[1, 1].set_title('true sample 2')
+    axs[1, 1].axis('off')
     obj_true_2 = min_max_norm(obj_true_2)
-    plt.imshow(obj_true_2, cmap='gray')
+    axs[1, 1].imshow(obj_true_2, cmap='gray')
 
-    plt.subplot(233)
-    plt.title('prediction, SSIM=%.1f'%ssim((obj_pred_1*255).astype('uint8'), (obj_true_1*255).astype('uint8'), multichannel=False))
-    plt.axis('off')
-    plt.imshow(obj_pred_1, cmap='gray')
+    axs[0, 2].set_title('prediction, SSIM=%.1f'%ssim((obj_pred_1*255).astype('uint8'), (obj_true_1*255).astype('uint8'), multichannel=False))
+    axs[0, 2].axis('off')
+    axs[0, 2].imshow(obj_pred_1, cmap='gray')
 
-    plt.subplot(236)
-    plt.title('prediction, SSIM=%.1f'%ssim((obj_pred_2*255).astype('uint8'), (obj_true_2*255).astype('uint8'), multichannel=False))
-    plt.axis('off')
-    plt.imshow(obj_pred_2, cmap='gray')
+    axs[1, 2].set_title('prediction, SSIM=%.1f'%ssim((obj_pred_2*255).astype('uint8'), (obj_true_2*255).astype('uint8'), multichannel=False))
+    axs[1, 2].axis('off')
+    axs[1, 2].imshow(obj_pred_2, cmap='gray')
+
+    axbig = fig.add_subplot(gs[:, -1])
+    axbig.set_title('predict ref')
+    axbig.axis('off')
+    axbig.imshow(ref_pred, cmap='gray')
 
     fig.tight_layout()
-    plt.savefig('./figures/compare_'+str(i).zfill(3)+'.png')
+    plt.savefig('./figs_temp/compare_'+str(i).zfill(3)+'.png')
     plt.close()
 
 
-def inference(mode='valid', size=256, seed=1, compare=True):
+def inference(mode='valid', size=256, seed=10, compare=True):
     """
     mode(str): 'train', 'valid' or 'test'
     size(int): image size
     seed(int): random seed of diffusion model
     """
-    with open('configs/ddpm_pair_base.yml', 'r') as f:
+    with open('configs/ddpm_pair_v3.yml', 'r') as f:
         configs = yaml.safe_load(f)
     model_configs = configs['model_settings']
 
     model = Diffusion_UNet(model_configs).cuda()
     model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load('checkpoints/ddpm_pair_160K.pt', map_location='cuda:0'), strict=False)
+    model.load_state_dict(torch.load('checkpoints/ddpm_pair_v3_310K.pt', map_location='cuda:0'), strict=False)
     model.eval()
     sampler = DDIM_Sampler(model, configs['ddpm_settings'], ddim_sampling_steps=50).cuda()
 
@@ -136,10 +139,7 @@ def inference(mode='valid', size=256, seed=1, compare=True):
                     im.save(folder+'-result/'+str(i+1).zfill(3)+'.tif')
 
             if compare:
-                plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, i)
-                plt.imshow(pred, cmap='gray', vmin=pred.min(), vmax=pred.max())
-                plt.savefig(f'./figures/pred_{i+1}.png') 
-                plt.close()
+                plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, pred, i)
 
 
 def inference_test(folder='./tif-no ref/mam_amber_m02', size=256):
@@ -182,47 +182,5 @@ def inference_test(folder='./tif-no ref/mam_amber_m02', size=256):
                 im.save(folder+'/'+str(i+1).zfill(3)+'.tif')
 
 
-def mosaic(patch_dir='./tif-no ref/mam_amber_m02/', n_rows=27):
-    files = sorted(glob.glob("%s/*.tif"%patch_dir))
-    # imgs = np.flipud(imread('./tif-no ref/mosaic4-Dr.n-hum-D-b4-20s-m15x15-dref.tif'))
-    imgs = []
-    for f in files:
-        imgs.append(np.array(Image.open(f)))
-    imgs = np.array(imgs)
-    print(imgs.shape)
-
-    size = 256
-    n_cols = len(imgs)//n_rows
-    mosaic = np.zeros((n_rows*size, n_cols*size))
-    img_id = 0
-    for i in reversed(range(n_rows)):
-        for j in range(n_cols):
-            im = imgs[img_id]
-            if i!=(n_rows-1) or j!=0:
-                diff = []
-                if i==n_rows-1 or j>0:
-                    b_avg = np.mean(im[:, 15:])
-                    prev_b_avg = np.mean(imgs[img_id-1][:, -15:])
-                    diff.append(prev_b_avg/b_avg)
-                if i<(n_rows-1):
-                    b_avg = np.mean(im[-15:, :])
-                    prev_b_avg = np.mean(imgs[img_id-n_cols][:15, :])
-                    diff.append(prev_b_avg/b_avg)
-
-                # im = im*np.mean(diff)
-
-            imgs[img_id] = im
-            img_id += 1 
-            # im = (im-i_min)/(i_max-i_min)
-            # im = (im*255).astype(np.int8)
-            # im = Image.fromarray(im)
-            # im.save(patch_dir+str(img_id-1).zfill(3)+'.tif')
-            mosaic[i*size:(i+1)*size, j*size:(j+1)*size] = im
-
-    mosaic = Image.fromarray(mosaic)
-    mosaic.save('pred.tif')
-
-
 if __name__ == '__main__':
     inference()
-    # mosaic()

@@ -49,7 +49,7 @@ torchrun --standalone --nproc_per_node=4 main.py
 
 <details>
 <summary>ddpm_pair_base</summary>
-模型結構使用較高的channels數及較低的深度，DDPM的參數則用原論文的設定。
+模型結構使用較高的channels數及較低的深度，DDPM的參數則用原論文的設定。而且`uncon_ratio`一定要至少設到0.5以上，不然產生出來的reference會很容易抓到樣本的特徵。
 </details>
 
 <details>

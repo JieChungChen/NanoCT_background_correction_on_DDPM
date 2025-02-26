@@ -4,7 +4,7 @@
 *.pth
 
 __pycache__/
-training_data_n/
+training_data/
 valid_data_n/
-figures/
+figs_temp/
 tif-no ref/
