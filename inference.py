@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-import os, glob, random, yaml
+import os, glob, random, yaml, argparse
 import numpy as np
 from tifffile import imread
 import matplotlib.pyplot as plt
@@ -15,8 +15,16 @@ from ddpm.diffusion import DDIM_Sampler
 from utils import min_max_norm, calc_psnr, mosaic
 
 
+def get_args_parser():
+    parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
+    parser.add_argument('--configs', default='configs/ddpm_pair_v3.yml', type=str)
+    parser.add_argument('--test_img_dir', default='./tif-no ref/mam_amber_m02', type=str)
+    parser.add_argument('--img_save_dir', default='figs_temp', type=str)
+    return parser
+
+
 def plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, ref_pred, i):
-    fig, axs = plt.subplots(ncols=4, nrows=2, figsize=(9, 4))
+    fig, axs = plt.subplots(ncols=4, nrows=2, figsize=(8, 4))
     gs = axs[0, -1].get_gridspec()
     for ax in axs[:, -1]:
         ax.remove()
@@ -57,13 +65,13 @@ def plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, ref_pre
     plt.close()
 
 
-def inference(mode='valid', size=256, seed=10, compare=True):
+def inference(config_file='configs/ddpm_pair_v3.yml', mode='valid', size=256, seed=10, compare=True):
     """
     mode(str): 'train', 'valid' or 'test'
     size(int): image size
     seed(int): random seed of diffusion model
     """
-    with open('configs/ddpm_pair_v3.yml', 'r') as f:
+    with open(config_file, 'r') as f:
         configs = yaml.safe_load(f)
     model_configs = configs['model_settings']
 
@@ -75,7 +83,7 @@ def inference(mode='valid', size=256, seed=10, compare=True):
 
     # load corresponding data
     if mode=='train':
-        data = NanoCT_Pair_Dataset('./training_data_n', img_size=size)
+        data = NanoCT_Pair_Dataset('./training_data', img_size=size)
         n_samples = 10
 
     elif mode=='valid':
@@ -132,8 +140,6 @@ def inference(mode='valid', size=256, seed=10, compare=True):
             if mode=='test':
                 im = Image.fromarray(obj_pred_1)
                 im.save(folder+'-result/'+str(i).zfill(3)+'.tif')
-                # im_pred = Image.fromarray(pred)
-                # im_pred.save(folder+'-result/temp/pred_'+str(i+1).zfill(3)+'.tif')
                 if i == (n_samples-1):
                     im = Image.fromarray(obj_pred_2)
                     im.save(folder+'-result/'+str(i+1).zfill(3)+'.tif')
@@ -142,8 +148,8 @@ def inference(mode='valid', size=256, seed=10, compare=True):
                 plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, pred, i)
 
 
-def inference_test(folder='./tif-no ref/mam_amber_m02', size=256):
-    with open('configs/ddpm_pair_v3.yml', 'r') as f:
+def inference_test(config_file='configs/ddpm_pair_v3.yml', folder='./tif-no ref/mam_amber_m02'):
+    with open(config_file, 'r') as f:
         configs = yaml.safe_load(f)
     model_configs = configs['model_settings']
     model = Diffusion_UNet(model_configs).cuda()
@@ -156,23 +162,17 @@ def inference_test(folder='./tif-no ref/mam_amber_m02', size=256):
     raw_imgs = np.flipud(imread(file_path).transpose((1, 2, 0)))
     raw_imgs = raw_imgs.transpose((2, 0, 1))
 
-    ref = np.array(Image.open("valid_data_n/data2/original/20230301_scarab1-b2-40s-20.3-m3/20230301_scarab1-b2-40s-20.3-m3_0001.tif").resize((size, size)))
-    raw_std, ref_std = raw_imgs[0].std(), ref.std()
-    raw_mean, ref_mean = ref.mean(), (raw_imgs[0]*(ref_std/raw_std)).mean()
-    factor = ref_std/raw_std
-    raw_imgs = raw_imgs*factor
-    print((raw_imgs[0]).min(), (raw_imgs[0]).max())
     with torch.no_grad():
         for i in range(len(raw_imgs)-1):
             print('img: %d'%i)
             input_1 = torch.Tensor(raw_imgs[i]/10000).unsqueeze(0).float()
             input_2 = torch.Tensor(raw_imgs[i+1]/10000).unsqueeze(0).float()
-            input_1 = F.interpolate(input_1.unsqueeze(0), size=(size, size), mode='bicubic')
-            input_2 = F.interpolate(input_2.unsqueeze(0), size=(size, size), mode='bicubic')
+            input_1 = F.interpolate(input_1.unsqueeze(0), size=(256, 256), mode='bicubic')
+            input_2 = F.interpolate(input_2.unsqueeze(0), size=(256, 256), mode='bicubic')
             input_imgs = torch.cat([input_1, input_2], dim=1)
             torch.manual_seed(1)
-            noise = torch.randn(size=[1, 1, size, size], device='cuda:0')
-            pred = sampler(input_imgs.view(1, 2, size, size).cuda(), noise).squeeze().cpu()
+            noise = torch.randn(size=[1, 1, 256, 256], device='cuda:0')
+            pred = sampler(input_imgs.view(1, 2, 256, 256).cuda(), noise).squeeze().cpu()
             obj_pred_1 = input_imgs[0, 0]/pred
             obj_pred_2 = input_imgs[0, 1]/pred
             im = Image.fromarray(obj_pred_1.numpy())
@@ -183,4 +183,6 @@ def inference_test(folder='./tif-no ref/mam_amber_m02', size=256):
 
 
 if __name__ == '__main__':
-    inference()
+    args = get_args_parser().parse_args()
+    os.makedirs(args['img_save_dir'], exist_ok=True)
+    inference(args.configs)

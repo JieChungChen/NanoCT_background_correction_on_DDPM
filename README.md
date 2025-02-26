@@ -1,6 +1,8 @@
 ## Nano-CT Background Correction on Diffusion model
 
-Diffusion model (DDPM) for background correction of TXM images. (based on SR3 - Super Resolution with Diffusion Probabilistic Model)
+使用DDPM去除TXM拍攝影像的背景  
+Diffusion model (DDPM) for background correction of TXM images.  
+(based on SR3 - Super Resolution with Diffusion Probabilistic Model)
 
 ## Overview  
 
@@ -10,14 +12,8 @@ In TXM, each pixel of the detector may respond differently to incoming X-rays du
 
 ### Model Architecture 
 
-A pair of TXM images obtained at very close time should share the same background. 
+A pair of TXM images acquired within a short time interval should have the same background. Based on this assumption, we use a diffusion model to extract common features from the image pair and generate a possible background image.
 ![img](figs/architecture.png)
-
-## Results
-
-* **DDPM_PAIR_BASE** (testing set)  
-  
-![img](figs/ddpm_pair_base.png)
 
 ## Installation  
 
@@ -33,7 +29,13 @@ pip install -r requirements.txt
 
 Download the pre-trained model [here]().
 
-### training
+You can use [demo.ipynb](demo.ipynb) to remove the background from the images in [demo_imgs](demo_imgs) as example.  
+or  
+```
+python inference.py --test_img_dir FOLDER_PATH_OF_YOUR_IMGS
+```
+
+### Training
 
 single gpu command
 ```
@@ -56,3 +58,9 @@ torchrun --standalone --nproc_per_node=4 main.py
 <summary>ddpm_pair_v3</summary>
 增加了模型深度並砍了channel數，同時在數據的augmentation流程多了亮度及對比的變化性，所有的數據統一除以15000當做normalize。但是數據的處理有瑕疵，一方面是圖像之間的數值差距偏大，以及部份訓練數據在resize的過程遭到汙染，因此這個版本的預測效果不穩定。
 </details>
+
+## Results
+
+* **DDPM_PAIR_BASE** (testing set)  
+  
+![img](figs/ddpm_pair_base.png)
