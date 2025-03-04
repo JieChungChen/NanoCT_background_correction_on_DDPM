@@ -14,6 +14,7 @@ In TXM, each pixel of the detector may respond differently to incoming X-rays du
 ### Model Architecture 
 
 A pair of TXM images acquired within a short time interval should have the same background. Based on this assumption, we use a diffusion model to extract common features from the image pair and generate a possible background image.
+
 ![img](figs/architecture.png)
 
 ## Installation  
@@ -56,8 +57,8 @@ torchrun --standalone --nproc_per_node=4 main.py
 </details>
 
 <details>
-<summary>ddpm_pair_v3</summary>
-增加了模型深度並砍了channel數，同時在數據的augmentation流程多了亮度及對比的變化性，所有的數據統一除以15000當做normalize。但是數據的處理有瑕疵，一方面是圖像之間的數值差距偏大，以及部份訓練數據在resize的過程遭到汙染，因此這個版本的預測效果不穩定。
+<summary>ddpm_pair_v2</summary>
+增加了模型深度並砍了channel數，
 </details>
 
 ## Results
