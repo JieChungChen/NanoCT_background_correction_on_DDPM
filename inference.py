@@ -17,7 +17,7 @@ from utils import min_max_norm, calc_psnr, mosaic
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--configs', default='configs/ddpm_pair_v3.yml', type=str)
+    parser.add_argument('--configs', default='configs/ddpm_pair_base.yml', type=str)
     parser.add_argument('--test_img_dir', default='./tif-no ref/mam_amber_m02', type=str)
     parser.add_argument('--img_save_dir', default='figs_temp', type=str)
     return parser
@@ -65,7 +65,7 @@ def plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, ref_pre
     plt.close()
 
 
-def inference(config_file='configs/ddpm_pair_v3.yml', mode='valid', size=256, seed=10, compare=True):
+def inference(config_file='configs/ddpm_pair_v4.yml', mode='train', size=256, seed=3, compare=True):
     """
     mode(str): 'train', 'valid' or 'test'
     size(int): image size
@@ -73,17 +73,18 @@ def inference(config_file='configs/ddpm_pair_v3.yml', mode='valid', size=256, se
     """
     with open(config_file, 'r') as f:
         configs = yaml.safe_load(f)
+    data_configs = configs['data_settings']
     model_configs = configs['model_settings']
 
     model = Diffusion_UNet(model_configs).cuda()
     model = torch.nn.DataParallel(model)
-    model.load_state_dict(torch.load('checkpoints/ddpm_pair_v3_310K.pt', map_location='cuda:0'), strict=False)
+    model.load_state_dict(torch.load('checkpoints/ddpm_pair_base.pt', map_location='cuda:0'), strict=False)
     model.eval()
     sampler = DDIM_Sampler(model, configs['ddpm_settings'], ddim_sampling_steps=50).cuda()
 
     # load corresponding data
     if mode=='train':
-        data = NanoCT_Pair_Dataset('./training_data', img_size=size)
+        data = NanoCT_Pair_Dataset(data_configs['train_data_dir'], img_size=size)
         n_samples = 10
 
     elif mode=='valid':
@@ -102,7 +103,7 @@ def inference(config_file='configs/ddpm_pair_v3.yml', mode='valid', size=256, se
         for i in range(n_samples):
 
             if  mode=='train':
-                input_imgs, ref_img = data[i*100]
+                input_imgs, ref_img = data[random.randint(0, 9999)]
                 ref_img = ref_img.squeeze()
                 obj_true_1 = (input_imgs[0]/(ref_img+1e-4)).numpy()
                 obj_true_2 = (input_imgs[1]/(ref_img+1e-4)).numpy()
@@ -184,5 +185,5 @@ def inference_test(config_file='configs/ddpm_pair_v3.yml', folder='./tif-no ref/
 
 if __name__ == '__main__':
     args = get_args_parser().parse_args()
-    os.makedirs(args['img_save_dir'], exist_ok=True)
+    os.makedirs(args.img_save_dir, exist_ok=True)
     inference(args.configs)

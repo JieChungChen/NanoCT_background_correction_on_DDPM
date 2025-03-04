@@ -212,8 +212,3 @@ class Diffusion_UNet(nn.Module):
 
         assert len(hs) == 0
         return h
-    
-
-if __name__ == '__main__':
-    model = Diffusion_UNet()
-    summary(model, input_size=(4, 2, 256, 256))

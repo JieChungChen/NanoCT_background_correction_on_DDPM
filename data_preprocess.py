@@ -16,15 +16,6 @@ class RndRotateTransform:
         return TF.rotate(x, angle)
     
     
-class RndScaler:
-    def __init__(self, f):
-        self.factor = f
-
-    def __call__(self, x):
-        factor = random.uniform(self.factor[0], self.factor[1])
-        return x*factor
-  
-
 class NanoCT_Pair_Dataset(Dataset):
     def __init__(self, data_dir, img_size, num_sample=100, transform=True):
         self.size = img_size
@@ -36,16 +27,15 @@ class NanoCT_Pair_Dataset(Dataset):
         dref_rnd_choose = np.random.choice(len(dref_files), num_sample, replace=False)
         ref_rnd_choose = np.random.choice(len(ref_files), num_sample, replace=False)
         for i in dref_rnd_choose:
-            raw_dref = Image.open(dref_files[i]).resize((img_size, img_size)) # 每個pixel是光強度，遠超255
+            raw_dref = Image.open(dref_files[i]).resize((img_size, img_size)) 
             dref_imgs.append(np.array(raw_dref))
         for i in ref_rnd_choose:
-            raw_ref = Image.open(ref_files[i]).convert("I").resize((img_size, img_size)) # 每個pixel是光強度，遠超255
+            raw_ref = Image.open(ref_files[i]).convert("I").resize((img_size, img_size)) 
             ref_imgs.append(np.array(raw_ref))
         dref_imgs = torch.from_numpy(np.array(dref_imgs)).unsqueeze(1).float()
         ref_imgs = torch.from_numpy(np.array(ref_imgs)).unsqueeze(1).float()
         
         self.input_imgs = dref_imgs.repeat_interleave(100, dim=0)
-        self.input_imgs = self.input_imgs
         self.target_imgs = ref_imgs
         self.target_imgs = self.target_imgs.repeat(num_sample, 1, 1, 1)
 
@@ -64,7 +54,6 @@ class NanoCT_Pair_Dataset(Dataset):
             
             ref_aug = transforms.Compose([
                 transforms.RandomVerticalFlip(p=0.5),
-                RndScaler(f=(0.75, 1.33)),
                                         ])
             x_1, x_2, ref = dref_aug(x_1), dref_aug(x_2), ref_aug(ref)
         x = torch.cat([x_1*ref, x_2*ref], axis=0)
@@ -76,10 +65,11 @@ class NanoCT_Pair_Dataset(Dataset):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    data = NanoCT_Pair_Dataset('./training_data_n', 256)
+    data = NanoCT_Pair_Dataset('./training_data', 256)
     for i in range(10):
         x, ref = data[i]
-        print(x.max(), ref.max())
+        print(x.shape, ref.shape) 
+        print(x.max(), x.min())
         plt.subplot(131)
         plt.imshow(x[0].squeeze(), cmap='gray')
         plt.axis('off')
