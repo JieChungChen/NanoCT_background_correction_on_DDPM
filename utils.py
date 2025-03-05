@@ -1,5 +1,4 @@
 import os, glob
-import torch
 import numpy as np
 from PIL import Image
 
@@ -20,7 +19,7 @@ def min_max_norm(x):
 
 
 def calc_psnr(x, y):
-    return -10*torch.log10(((x-y)**2).mean())
+    return -10*np.log10(((x-y)**2).mean())
 
 
 def raw_img_save(patch_dir='./tif-no ref/Fr5-b2-60s-m2'):
@@ -30,7 +29,7 @@ def raw_img_save(patch_dir='./tif-no ref/Fr5-b2-60s-m2'):
         im.save(patch_dir+'-result/'+str(i).zfill(3)+'.tif')
 
 
-def mosaic(patch_dir='./tif-no ref/mam_amber_m02/', save_dir='figs_temp', n_rows=27, auto_contrast=False):
+def mosaic(patch_dir='./test_data/Fr5-b2-60s-m5-result/', save_dir='./test_data/Fr5_result', n_rows=5, auto_contrast=True):
     """
     reconstruct a mosaic, start from bottom left corner (go right to the end then up)
 
@@ -58,15 +57,15 @@ def mosaic(patch_dir='./tif-no ref/mam_amber_m02/', save_dir='figs_temp', n_rows
                 if i!=(n_rows-1) or j!=0:
                     diff = []
                     if i==n_rows-1 or j>0:
-                        b_avg = np.mean(im[:, 15:])
-                        prev_b_avg = np.mean(imgs[img_id-1][:, -15:])
+                        b_avg = np.mean(im[:, 20:])
+                        prev_b_avg = np.mean(imgs[img_id-1][:, -20:])
                         diff.append(prev_b_avg/b_avg)
                     if i<(n_rows-1):
-                        b_avg = np.mean(im[-15:, :])
-                        prev_b_avg = np.mean(imgs[img_id-n_cols][:15, :])
+                        b_avg = np.mean(im[-20:, :])
+                        prev_b_avg = np.mean(imgs[img_id-n_cols][:20, :])
                         diff.append(prev_b_avg/b_avg)
-                im = im*np.mean(diff)
-                imgs[img_id] = im
+                    im = im*np.mean(diff)
+                    imgs[img_id] = im
 
             img_id += 1 
             mosaic[i*size:(i+1)*size, j*size:(j+1)*size] = im

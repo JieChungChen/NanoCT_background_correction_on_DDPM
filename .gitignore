@@ -6,5 +6,5 @@
 __pycache__/
 training_data/
 valid_data_n/
+test_data/
 figs_temp/
-tif-no ref/

@@ -1,7 +1,7 @@
 name: DDPM For Background Correction
 
 data_settings:
-  train_data_dir: training_data_n
+  train_data_dir: training_data
   model_save_dir: checkpoints(pair)
   img_size: 256
   dataset_init_every_n_epoch: 5
