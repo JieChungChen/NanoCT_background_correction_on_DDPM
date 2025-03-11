@@ -17,8 +17,8 @@ from utils import min_max_norm, calc_psnr
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
     parser.add_argument('--configs', default='configs/ddpm_pair_v2.yml', type=str)
-    parser.add_argument('--model_ckpt', default='checkpoints/ddpm_pair_v2_150k.pt', type=str)
-    parser.add_argument('--test_img_dir', default='test_data/Fr5-b2-60s-m7', type=str)
+    parser.add_argument('--model_ckpt', default='checkpoints/ddpm_pair_v2_200k.pt', type=str)
+    parser.add_argument('--test_img_dir', default='test_data/Fr5-b2-60s-m6', type=str)
     parser.add_argument('--img_save_dir', default='figs_temp', type=str)
     return parser
 
@@ -134,6 +134,7 @@ def inference(args, mode='test', size=256, seed=3):
             torch.manual_seed(seed)
             noise = torch.randn(size=[1, 1, size, size], device='cuda:0')
             pred = sampler(input_imgs.view(1, 2, size, size).cuda(), noise).squeeze().cpu().numpy()
+            pred = pred * (0.7/pred.mean())
             
             if mode=='train' or mode=='valid':
                 obj_pred_1 = input_imgs[0].numpy()/pred
@@ -164,7 +165,7 @@ def inference_test(config_file, ckpt, folder):
     sampler = DDIM_Sampler(model, configs['ddpm_settings'], ddim_sampling_steps=50).cuda()
     model.eval()
 
-    file_path='test_data/mam_amber_m02_raw.tif'
+    file_path='test_data/mosaic4-Dr.n-hum-D-b4-20s-m19x19.tif'
     raw_imgs = np.flipud(imread(file_path).transpose((1, 2, 0)))
     raw_imgs = raw_imgs.transpose((2, 0, 1))
     glob_max = np.max(raw_imgs)
@@ -181,12 +182,13 @@ def inference_test(config_file, ckpt, folder):
             torch.manual_seed(1)
             noise = torch.randn(size=[1, 1, 256, 256], device='cuda:0')
             pred = sampler(input_imgs.view(1, 2, 256, 256).cuda(), noise).squeeze().cpu()
+            pred = pred * (0.7/pred.mean())
             obj_pred_1 = input_1.squeeze() / pred * max_g
             obj_pred_2 = input_2.squeeze() / pred * max_g
             im = Image.fromarray(obj_pred_1.numpy()/glob_max)
             im.save(folder+'/'+str(i).zfill(3)+'.tif')
             if i == len(raw_imgs)-2:
-                im = Image.fromarray(obj_pred_2.numpy())
+                im = Image.fromarray(obj_pred_2.numpy()/glob_max)
                 im.save(folder+'/'+str(i+1).zfill(3)+'.tif')
 
 
@@ -194,4 +196,4 @@ if __name__ == '__main__':
     args = get_args_parser().parse_args()
     os.makedirs(args.img_save_dir, exist_ok=True)
     # inference(args)
-    inference_test(args.configs, args.model_ckpt, args.test_img_dir)
+    inference_test(args.configs, args.model_ckpt, 'test_data/mosaic4-Dr.n-hum-D-b4-20s-m19x19')

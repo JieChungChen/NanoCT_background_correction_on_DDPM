@@ -14,7 +14,7 @@ from utils import check_distributed
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--configs', default='configs/ddpm_pair_v4.yml', type=str)
+    parser.add_argument('--configs', default='configs/ddpm_pair_v2.yml', type=str)
     return parser
 
 

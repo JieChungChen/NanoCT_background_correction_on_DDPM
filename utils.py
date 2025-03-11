@@ -29,7 +29,7 @@ def raw_img_save(patch_dir='./tif-no ref/Fr5-b2-60s-m2'):
         im.save(patch_dir+'-result/'+str(i).zfill(3)+'.tif')
 
 
-def mosaic(patch_dir='./test_data/Fr5-b2-60s-m5-result/', save_dir='./test_data/Fr5_result', n_rows=5, auto_contrast=True):
+def mosaic(patch_dir='./test_data/Fr5-b2-60s-m6-result/', save_dir='./test_data/Fr5_result', n_rows=6, auto_contrast=True):
     """
     reconstruct a mosaic, start from bottom left corner (go right to the end then up)
 

@@ -3,7 +3,7 @@
 使用DDPM去除TXM拍攝影像的背景  
 
 Diffusion model (DDPM) for background correction of TXM images.  
-(based on SR3 - Super Resolution with Diffusion Probabilistic Model)
+(based on [SR3 - Super Resolution with Diffusion Probabilistic Model](https://github.com/novwaul/SR3))
 
 ## Overview  
 
@@ -29,9 +29,10 @@ pip install -r requirements.txt
 
 ### Inference
 
-Download the pre-trained model [here]().
+Download the pre-trained model [here (dropbox)](https://www.dropbox.com/scl/fo/ctko74fgzwyy3de2kk1u2/AM5oMW5wIejuuSTKW3jLjd8?rlkey=kkszxmw0zoi3e8xz4c9ccpdgz&st=tu9xwpxt&dl=0).
 
-You can use [demo.ipynb](demo.ipynb) to remove the background from the images in [demo_imgs](demo_imgs) as example.  
+You can use [demo.ipynb](demo.ipynb) to remove the background from the images in [demo_imgs](demo_imgs) as example. 
+
 or  
 ```
 python inference.py --test_img_dir FOLDER_PATH_OF_YOUR_IMGS
@@ -49,18 +50,16 @@ multi-gpu command (with 4 gpus)
 torchrun --standalone --nproc_per_node=4 main.py
 ```
 
-## Experiment record  
+## Experiment detail record  
 
 <details>
 <summary>ddpm_pair_base</summary>
-
-模型結構使用較高的channels數及較低的深度，DDPM的參數則用原論文的設定。而且`uncon_ratio`一定要至少設到0.5以上，不然產生出來的reference會很容易抓到樣本的特徵。
+<br>模型結構使用較高的channels數及較低的深度，DDPM的參數則用原論文的設定。
 </details>
 
 <details>
 <summary>ddpm_pair_v2</summary>
-
-增加了模型深度並砍了channel數，減少了self-attention的計算負擔，並維持跟`ddpm_pair_base`同等的預測能力
+<br>增加了模型深度並砍了channel數，減少了self-attention的計算負擔，並維持跟`ddpm_pair_base`同等的預測能力
 </details>
 
 ## Results
@@ -68,3 +67,5 @@ torchrun --standalone --nproc_per_node=4 main.py
 * **DDPM_PAIR_BASE** (testing set)  
   
 ![img](figs/ddpm_pair_base.png)
+
+* **DDPM_PAIR_V2** (testing set)  
