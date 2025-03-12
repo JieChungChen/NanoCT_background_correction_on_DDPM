@@ -16,8 +16,8 @@ from utils import min_max_norm, calc_psnr
 
 def get_args_parser():
     parser = argparse.ArgumentParser('diffusion for background correction', add_help=False)
-    parser.add_argument('--configs', default='configs/ddpm_pair_v2.yml', type=str)
-    parser.add_argument('--model_ckpt', default='checkpoints/ddpm_pair_v2_200k.pt', type=str)
+    parser.add_argument('--configs', default='configs/ddpm_pair_base.yml', type=str)
+    parser.add_argument('--model_ckpt', default='checkpoints/ddpm_pair_base.pt', type=str)
     parser.add_argument('--test_img_dir', default='test_data/Fr5-b2-60s-m6', type=str)
     parser.add_argument('--img_save_dir', default='figs_temp', type=str)
     return parser
@@ -69,12 +69,13 @@ def plot_2x3(input_imgs, obj_pred_1, obj_pred_2, obj_true_1, obj_true_2, ref_pre
     plt.close()
 
 
-def inference(args, mode='test', size=256, seed=3):
+def inference(args, mode='valid', size=256, seed=0):
     """
     mode(str): 'train', 'valid' or 'test'
     size(int): image size
     seed(int): random seed of diffusion model
     """
+    random.seed(seed)
     with open(args.configs, 'r') as f:
         configs = yaml.safe_load(f)
     data_configs = configs['data_settings']
@@ -176,8 +177,9 @@ def inference_test(config_file, ckpt, folder):
             max_g = np.max(raw_imgs[i:i+2])
             input_1 = torch.Tensor(raw_imgs[i]/max_g).unsqueeze(0).float()
             input_2 = torch.Tensor(raw_imgs[i+1]/max_g).unsqueeze(0).float()
-            input_1 = F.interpolate(input_1.unsqueeze(0), size=(256, 256), mode='bicubic')
-            input_2 = F.interpolate(input_2.unsqueeze(0), size=(256, 256), mode='bicubic')
+            if input_1.shape[1] != 256:
+                input_1 = F.interpolate(input_1.unsqueeze(0), size=(256, 256), mode='bicubic')
+                input_2 = F.interpolate(input_2.unsqueeze(0), size=(256, 256), mode='bicubic')
             input_imgs = torch.cat([input_1, input_2], dim=1)
             torch.manual_seed(1)
             noise = torch.randn(size=[1, 1, 256, 256], device='cuda:0')
@@ -195,5 +197,5 @@ def inference_test(config_file, ckpt, folder):
 if __name__ == '__main__':
     args = get_args_parser().parse_args()
     os.makedirs(args.img_save_dir, exist_ok=True)
-    # inference(args)
-    inference_test(args.configs, args.model_ckpt, 'test_data/mosaic4-Dr.n-hum-D-b4-20s-m19x19')
+    inference(args)
+    # inference_test(args.configs, args.model_ckpt, 'test_data/mosaic4-Dr.n-hum-D-b4-20s-m19x19')

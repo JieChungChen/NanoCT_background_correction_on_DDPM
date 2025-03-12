@@ -66,6 +66,8 @@ torchrun --standalone --nproc_per_node=4 main.py
 
 * **DDPM_PAIR_BASE** (testing set)  
   
-![img](figs/ddpm_pair_base.png)
+![img](figs/ddpm_pair_base_test.png)
 
 * **DDPM_PAIR_V2** (testing set)  
+
+![img](figs/ddpm_pair_v2_test.png)
