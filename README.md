@@ -23,8 +23,8 @@ This model is implemented on `python 3.11` with `torch 2.3.1`
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/JieChungChen/TXM_Tomography_Package.git
-   cd TXM_Tomography_Package
+   git clone https://github.com/JieChungChen/NanoCT_background_correction_on_DDPM.git
+   cd NanoCT_background_correction_on_DDPM
    ```
 
 2. Install torch 2.3.1 or above according to your CUDA version from [pytorch.org](https://pytorch.org/get-started/locally/)
