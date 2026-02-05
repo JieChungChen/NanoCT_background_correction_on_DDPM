@@ -103,8 +103,8 @@ def main(args):
                         "img shape: ": x_0.shape,
                     })
 
-                if (step/accumulate_step) % 5000 == 0:
-                    torch.save(model.state_dict(), '%s/ckpt_step=%d.pt'%(data_configs['model_save_dir'], 0+step//accumulate_step))
+                if (step/accumulate_step) % trn_configs['model_save_every_n_step'] == 0:
+                    torch.save(model.state_dict(), '%s/ckpt_step=%d.pt'%(data_configs['model_save_dir'], step//accumulate_step))
 
 
 if __name__ == '__main__':

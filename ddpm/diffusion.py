@@ -86,7 +86,7 @@ class DDIM_Sampler(nn.Module):
         self.register_buffer('sqrt_recipm1_alphas_bar', torch.sqrt(1. / self.alphas_bar - 1))
         assert self.coeff[0] == 0.0 and self.sqrt_alpha_i_min_1[0] == 1.0, 'DDIM parameter error'
 
-    def ddim_p_sample(self, condit, x_t, i, clip=True):
+    def ddim_p_sample(self, condit, x_t, i, clip=False):
         t = self.tau[i]
         batched_time = torch.full((x_t.shape[0],), t, dtype=torch.long).cuda()
         pred_noise = self.model(torch.cat([condit, x_t], dim=1), batched_time) 
@@ -103,7 +103,7 @@ class DDIM_Sampler(nn.Module):
     @torch.no_grad()
     def forward(self, condit, x_T, save_process=False):
         x_t = x_T
-        for i in tqdm(reversed(range(self.ddim_steps)), desc='DDIM Sampling', total=self.ddim_steps):
+        for i in tqdm(reversed(range(self.ddim_steps)), desc='DDIM Sampling', total=self.ddim_steps, position=1, leave=False):
             x_t = self.ddim_p_sample(condit, x_t, i)
             if save_process:
                 torchvision.utils.save_image(x_t, 'figures/%s.png'%str(i).zfill(3), normalize=True)

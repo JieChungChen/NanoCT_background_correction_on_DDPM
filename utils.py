@@ -29,10 +29,12 @@ def raw_img_save(patch_dir='./tif-no ref/Fr5-b2-60s-m2'):
         im.save(patch_dir+'-result/'+str(i).zfill(3)+'.tif')
 
 
-def mosaic(patch_dir='./test_data/Fr5-b2-60s-m6-result/', save_dir='./test_data/Fr5_result', n_rows=6, auto_contrast=True):
+def mosaic(patch_dir, save_dir, n_cols=6, auto_contrast=False):
     """
     reconstruct a mosaic, start from bottom left corner (go right to the end then up)
 
+    Parameters
+    ----------
     patch_dir(str): the folder containing tif patch files of a mosaic.
     save_dir(str): the folder where the result will be saved
     n_rows(int): the number of rows in the mosaic.
@@ -46,7 +48,7 @@ def mosaic(patch_dir='./test_data/Fr5-b2-60s-m6-result/', save_dir='./test_data/
     print(f'n_figures: {imgs.shape[0]}, resolution: {imgs.shape[1:]}')
 
     size = imgs.shape[1]
-    n_cols = len(imgs)//n_rows
+    n_rows = len(imgs)//n_cols
     mosaic = np.zeros((n_rows*size, n_cols*size))
     img_id = 0
     for i in reversed(range(n_rows)):
@@ -57,12 +59,12 @@ def mosaic(patch_dir='./test_data/Fr5-b2-60s-m6-result/', save_dir='./test_data/
                 if i!=(n_rows-1) or j!=0:
                     diff = []
                     if i==n_rows-1 or j>0:
-                        b_avg = np.mean(im[:, 20:])
-                        prev_b_avg = np.mean(imgs[img_id-1][:, -20:])
+                        b_avg = np.mean(im[:, :50])
+                        prev_b_avg = np.mean(imgs[img_id-1][:, -50:])
                         diff.append(prev_b_avg/b_avg)
                     if i<(n_rows-1):
-                        b_avg = np.mean(im[-20:, :])
-                        prev_b_avg = np.mean(imgs[img_id-n_cols][:20, :])
+                        b_avg = np.mean(im[-50:, :])
+                        prev_b_avg = np.mean(imgs[img_id-n_cols][:50, :])
                         diff.append(prev_b_avg/b_avg)
                     im = im*np.mean(diff)
                     imgs[img_id] = im

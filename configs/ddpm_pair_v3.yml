@@ -4,8 +4,8 @@ data_settings:
   train_data_dir: training_data
   model_save_dir: checkpoints
   img_size: 256
-  dataset_init_every_n_epoch: 5
-  model_save_every_n_epoch: 10
+  dataset_init_every_n_epoch: 2
+  model_save_every_n_step: 5000
   pretrained_weight: ~
 
 model_settings:
@@ -20,18 +20,17 @@ model_settings:
 
 training_settings:
   use_mix_precision: true
-  use_torch_attn: false
   weight_decay: 1.e-4
   lr: 4.5e-6
   grad_clip: 1.
   device: cuda:0
-  batch_size: 1
-  accumulate_step: 8
+  batch_size: 4
+  accumulate_step: 2
   epoch: 1000
 
 ddpm_settings:
-  T: 2000
+  T: 1000
   beta_scdl: linear
-  beta_1: 1.e-6
+  beta_1: 1.e-4
   beta_T: 0.02
-  uncon_ratio: 0.25
+  uncon_ratio: 0.1

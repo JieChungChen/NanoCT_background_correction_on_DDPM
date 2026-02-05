@@ -21,7 +21,11 @@ class NanoCT_Pair_Dataset(Dataset):
         self.size = img_size
         self.transform = transform
         dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
-        ref_files = sorted(glob.glob("%s/ref/*.tif"%data_dir))
+        ref_folders = glob.glob("%s/ref/*"%data_dir)
+        ref_files = []
+        for folder in ref_folders:
+            ref_files += glob.glob(f"{folder}/*.tif")
+        print(len(ref_files))
 
         dref_imgs, ref_imgs = [], []
         dref_rnd_choose = np.random.choice(len(dref_files), num_sample, replace=False)
@@ -61,23 +65,3 @@ class NanoCT_Pair_Dataset(Dataset):
 
     def __len__(self):
         return len(self.input_imgs)
-    
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    data = NanoCT_Pair_Dataset('./training_data', 256)
-    for i in range(10):
-        x, ref = data[i]
-        print(x.shape, ref.shape) 
-        print(x.max(), x.min())
-        plt.subplot(131)
-        plt.imshow(x[0].squeeze(), cmap='gray')
-        plt.axis('off')
-        plt.subplot(132)
-        plt.imshow(x[1].squeeze(), cmap='gray')
-        plt.axis('off')
-        plt.subplot(133)
-        plt.imshow(ref.squeeze(), cmap='gray')
-        plt.axis('off')
-        plt.show()
-        plt.close()

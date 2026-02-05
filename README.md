@@ -19,11 +19,17 @@ A pair of TXM images acquired within a short time interval should have the same 
 
 ## Installation  
 
-This model is implemented on `python 3.11` with `torch 2.3.1+cu118` 
-To install the required modules:  
-```
-pip install -r requirements.txt
-```
+This model is implemented on `python 3.11` with `torch 2.3.1` 
+
+1. Install torch 2.3.1 or above according to your CUDA version from [pytorch.org](https://pytorch.org/get-started/locally/)
+    ```
+    pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+    ```
+
+2. Install other dependencies  
+    ```
+    pip install -r requirements.txt
+    ```
 
 ## Quick Start  
 
