@@ -52,27 +52,47 @@ python inference.py --test_img_dir FOLDER_PATH_OF_YOUR_IMGS
 
 ### Training
 
+#### From scratch
+
+If you want to train the model from scratch, please prepare the sample image and reference image folders respectively, and change the path settings in `ddpm_pair_v3.yml` accordingly.
+
+若要從頭開始訓練模型，請分別準備好 sample image 和 reference image 資料夾，並更改`ddpm_pair_v3.yml`裡的路徑設定。
+
+```
+data_settings:
+  train_sample_data: training_data/sample 
+  train_ref_data: training_data/TXM_2025_reference
+```
+
 single gpu command
 ```
-python main.py
+python main.py --config configs/ddpm_pair_v3.yml
 ```
 
 multi-gpu command (with 4 gpus) 
 ```
-torchrun --standalone --nproc_per_node=4 main.py
+torchrun --standalone --nproc_per_node=4 main.py --config configs/ddpm_pair_v3.yml
 ```
 
-## Experiment detail record  
+#### Fine-tuning
 
-<details>
-<summary>ddpm_pair_base</summary>
-<br>模型結構使用較高的channels數及較低的深度，DDPM的參數則用原論文的設定。
-</details>
+If you want to fine-tune the model, please also prepare the sample image and reference image folders respectively, and download the pre-trained model to `checkpoints` folder, and change the pretrained model path settings in `ddpm_pair_finetune.yml` accordingly.
 
-<details>
-<summary>ddpm_pair_v2</summary>
-<br>增加了模型深度並砍了channel數，減少了self-attention的計算負擔，並維持跟`ddpm_pair_base`同等的預測能力
-</details>
+若要進行模型微調，同樣請準備好 sample 和 reference image 資料夾，並下載預訓練模型至`checkpoints`資料夾、更改`ddpm_pair_finetune.yml`裡的pretrained模型路徑設定。
+
+```
+data_settings:
+  pretrained_weight: checkpoints/ddpm_pair_v3_400K.pt
+```
+single gpu command
+```
+python main.py --config configs/ddpm_pair_finetune.yml
+```
+
+multi-gpu command (with 4 gpus) 
+```
+torchrun --standalone --nproc_per_node=4 main.py --config configs/ddpm_pair_finetune.yml
+```
 
 ## Results
 

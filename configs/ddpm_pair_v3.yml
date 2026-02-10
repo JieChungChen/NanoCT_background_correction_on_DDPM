@@ -1,13 +1,13 @@
 name: DDPM For Background Correction
 
 data_settings:
-  train_data_dir: training_data
+  train_dref_data: training_data/sample
+  train_ref_data: training_data/TXM_2025_reference
+  train_size: 10000
   model_save_dir: checkpoints
-  img_size: 256
-  dataset_init_every_n_epoch: 2
-  model_save_every_n_step: 5000
   pretrained_weight: ~
-
+  img_size: 256
+  
 model_settings:
   ch: 64
   ch_mult: [1, 2, 2, 4, 4]
@@ -19,12 +19,12 @@ model_settings:
   input_ch: 3
 
 training_settings:
+  model_save_every_n_step: 5000
   use_mix_precision: true
   weight_decay: 1.e-4
   lr: 4.5e-6
   grad_clip: 1.
-  device: cuda:0
-  batch_size: 4
+  batch_size: 6
   accumulate_step: 2
   epoch: 1000
 

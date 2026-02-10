@@ -1,5 +1,7 @@
 import numpy as np
-import random, glob
+import random
+import glob
+from tqdm import tqdm
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -17,37 +19,53 @@ class RndRotateTransform:
     
     
 class NanoCT_Pair_Dataset(Dataset):
-    def __init__(self, data_dir, img_size, num_sample=100, transform=True):
-        self.size = img_size
-        self.transform = transform
-        dref_files = sorted(glob.glob("%s/dref/*.tif"%data_dir))
-        ref_folders = glob.glob("%s/ref/*"%data_dir)
-        ref_files = []
-        for folder in ref_folders:
-            ref_files += glob.glob(f"{folder}/*.tif")
-        print(len(ref_files))
-
-        dref_imgs, ref_imgs = [], []
-        dref_rnd_choose = np.random.choice(len(dref_files), num_sample, replace=False)
-        ref_rnd_choose = np.random.choice(len(ref_files), num_sample, replace=False)
-        for i in dref_rnd_choose:
-            raw_dref = Image.open(dref_files[i]).resize((img_size, img_size)) 
-            dref_imgs.append(np.array(raw_dref))
-        for i in ref_rnd_choose:
-            raw_ref = Image.open(ref_files[i]).convert("I").resize((img_size, img_size)) 
-            ref_imgs.append(np.array(raw_ref))
-        dref_imgs = torch.from_numpy(np.array(dref_imgs)).unsqueeze(1).float()
-        ref_imgs = torch.from_numpy(np.array(ref_imgs)).unsqueeze(1).float()
+    def __init__(self, configs, transform=True):
+        """
+        Dataset for NanoCT denoising using paired data.
         
-        self.input_imgs = dref_imgs.repeat_interleave(100, dim=0)
-        self.target_imgs = ref_imgs
-        self.target_imgs = self.target_imgs.repeat(num_sample, 1, 1, 1)
+        Parameters
+        ----------
+        configs : dict
+            Configuration dictionary containing:
+            - "train_size": Number of training data.
+            - "img_size": Size to which images are resized.
+            - "train_sample_data": Path to the directory containing sample images.
+            - "train_ref_data": Path to the directory containing reference images.
+        transform : bool, optional
+            Whether to apply data augmentation transforms. Default is True.
+        """
+        self.train_size = configs["train_size"]
+        self.size = configs["img_size"]
+        self.transform = transform
+        dref_files = sorted(glob.glob(f"{configs["train_sample_data"]}/*.tif"))
+        ref_files = glob.glob(f"{configs["train_ref_data"]}/*.tif")
+
+        # load sample and reference images
+        sample_imgs, ref_imgs = [], []
+        for f in tqdm(dref_files, desc="Loading sample images"):
+            raw_sample = Image.open(f).resize((self.size, self.size))
+            # if the image is 8 bits, devide by 255 to normalize to [0, 1]
+            if raw_sample.mode == "L":
+                raw_sample = np.array(raw_sample) / 255.0 
+            else:
+                raw_sample = np.array(raw_sample)
+            sample_imgs.append(raw_sample)
+        for f in tqdm(ref_files, desc="Loading reference images"):
+            raw_ref = Image.open(f).convert("I").resize((self.size, self.size)) 
+            raw_ref = np.array(raw_ref)
+            ref_imgs.append(raw_ref/raw_ref.max())
+
+        self.n_samples = len(sample_imgs)
+        self.n_refs = len(ref_imgs)
+        self.input_imgs = torch.from_numpy(np.array(sample_imgs)).unsqueeze(1).float() # (N, 1, H, W)
+        self.target_imgs = torch.from_numpy(np.array(ref_imgs)).unsqueeze(1).float()   # (N, 1, H, W)
 
     def __getitem__(self, index):
-        n_samples = len(self.input_imgs)
-        x_1, x_2 = self.input_imgs[index], self.input_imgs[random.randint(0, n_samples-1)]
-        ref = self.target_imgs[index]
-        ref = ref/ref.max()
+        id_1, id_2 = random.randint(0, self.n_samples-1), random.randint(0, self.n_samples-1)
+        x_1, x_2 = self.input_imgs[id_1], self.input_imgs[id_2]
+        ref = self.target_imgs[random.randint(0, self.n_refs-1)]
+
+        # Data augmentation
         if self.transform:
             dref_aug = transforms.Compose([
                 RndRotateTransform(),
@@ -64,4 +82,4 @@ class NanoCT_Pair_Dataset(Dataset):
         return x, ref
 
     def __len__(self):
-        return len(self.input_imgs)
+        return self.train_size
